@@ -1,0 +1,40 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Build outputs & temp files
+node_modules
+dist
+dist-ssr
+*.local
+.expo/
+scratch/
+*.zip
+
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Sub-projects (managed in separate repositories)
+backend/
+mobile_student_app/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+.env.local
+
