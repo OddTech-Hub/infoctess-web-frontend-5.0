@@ -22,25 +22,25 @@ const ALL_LEVELS = [
     ],
     groups: ["Group 1", "Group 2"],
     students: [
-      { id: 1,  name: "Alberta Klokpa",   index: "5261000018", attended: 8, total: 8, pct: 100, device: "iPhone 13",      deviceId: "dev-001", flagged: false, group: "Group 1" },
-      { id: 2,  name: "Daniel Amoh",      index: "5261000667", attended: 0, total: 8, pct: 0,   device: "Samsung S21",    deviceId: "dev-002", flagged: false, group: "Group 1" },
-      { id: 3,  name: "Emmanuel Oduro",   index: "5261000215", attended: 7, total: 8, pct: 88,  device: "Pixel 7",        deviceId: "dev-003", flagged: false, group: "Group 2" },
-      { id: 4,  name: "Emmanuel Twumasi", index: "5261000267", attended: 2, total: 8, pct: 25,  device: "Multiple (2)",   deviceId: null,      flagged: true,  alertType: "multi_device",  flagReason: "Logged in from 2 devices: iPhone 12 & Samsung A52", group: "Group 2" },
-      { id: 5,  name: "Heis Boateng",     index: "523232323",  attended: 5, total: 8, pct: 63,  device: "iPhone 12",      deviceId: "dev-005", flagged: false, group: "Group 1" },
-      { id: 6,  name: "Nimako Joe",       index: "5261000334", attended: 6, total: 8, pct: 75,  device: "Changed device", deviceId: null,      flagged: true,  alertType: "device_change", flagReason: "Device changed: Tecno Spark → Infinix Hot 20", group: "Group 2" },
-      { id: 7,  name: "Osie Eugen Bonu",  index: "5261000660", attended: 3, total: 8, pct: 38,  device: "Tecno Spark",    deviceId: "dev-007", flagged: false, group: "Group 1" },
-      { id: 8,  name: "Sandra Mensah",    index: "5261000712", attended: 8, total: 8, pct: 100, device: "iPhone SE",      deviceId: "dev-008", flagged: false, group: "Group 2" },
+      { id: 1, name: "Alberta Klokpa", index: "5261000018", attended: 8, total: 8, pct: 100, device: "iPhone 13", deviceId: "dev-001", flagged: false, group: "Group 1" },
+      { id: 2, name: "Daniel Amoh", index: "5261000667", attended: 0, total: 8, pct: 0, device: "Samsung S21", deviceId: "dev-002", flagged: false, group: "Group 1" },
+      { id: 3, name: "Emmanuel Oduro", index: "5261000215", attended: 7, total: 8, pct: 88, device: "Pixel 7", deviceId: "dev-003", flagged: false, group: "Group 2" },
+      { id: 4, name: "Emmanuel Twumasi", index: "5261000267", attended: 2, total: 8, pct: 25, device: "Multiple (2)", deviceId: null, flagged: true, alertType: "multi_device", flagReason: "Logged in from 2 devices: iPhone 12 & Samsung A52", group: "Group 2" },
+      { id: 5, name: "Heis Boateng", index: "523232323", attended: 5, total: 8, pct: 63, device: "iPhone 12", deviceId: "dev-005", flagged: false, group: "Group 1" },
+      { id: 6, name: "Nimako Joe", index: "5261000334", attended: 6, total: 8, pct: 75, device: "Changed device", deviceId: null, flagged: true, alertType: "device_change", flagReason: "Device changed: Tecno Spark → Infinix Hot 20", group: "Group 2" },
+      { id: 7, name: "Osie Eugen Bonu", index: "5261000660", attended: 3, total: 8, pct: 38, device: "Tecno Spark", deviceId: "dev-007", flagged: false, group: "Group 1" },
+      { id: 8, name: "Sandra Mensah", index: "5261000712", attended: 8, total: 8, pct: 100, device: "iPhone SE", deviceId: "dev-008", flagged: false, group: "Group 2" },
     ],
     sessions: [
-      { id: "ATT-4869", course: "ICTE125", date: "6/2/2026",  checkins: 2, status: "closed" },
-      { id: "ATT-6162", course: "ICTW123", date: "6/1/2026",  checkins: 1, status: "closed" },
+      { id: "ATT-4869", course: "ICTE125", date: "6/2/2026", checkins: 2, status: "closed" },
+      { id: "ATT-6162", course: "ICTW123", date: "6/1/2026", checkins: 1, status: "closed" },
       { id: "ATT-4225", course: "ICTW123", date: "5/31/2026", checkins: 1, status: "closed" },
       { id: "ATT-6656", course: "ICTW123", date: "5/30/2026", checkins: 2, status: "closed" },
     ],
     progress: [
       { label: "Overall Attendance", value: 78, color: "#3b82f6" },
-      { label: "This Week",          value: 91, color: "#10b981" },
-      { label: "Below 75%",          value: 22, color: "#ef4444", raw: "5 students" },
+      { label: "This Week", value: 91, color: "#10b981" },
+      { label: "Below 75%", value: 22, color: "#ef4444", raw: "5 students" },
       { label: "Perfect Attendance", value: 43, color: "#f59e0b" },
     ],
     stats: { courses: 2, groups: 2, lowAttendance: 5, flagged: 2 },
@@ -55,20 +55,20 @@ const ALL_LEVELS = [
     ],
     groups: ["Group 1", "Group 2", "Group 3"],
     students: [
-      { id: 9,  name: "Ama Boateng",  index: "5251000011", attended: 6, total: 8, pct: 75,  device: "Samsung A53",  deviceId: "dev-009", flagged: false, group: "Group 1" },
-      { id: 10, name: "Kofi Mensah",  index: "5251000022", attended: 8, total: 8, pct: 100, device: "iPhone 14",    deviceId: "dev-010", flagged: false, group: "Group 1" },
-      { id: 11, name: "Abena Osei",   index: "5251000033", attended: 3, total: 8, pct: 38,  device: "Multiple (3)", deviceId: null,      flagged: true,  alertType: "multi_device",  flagReason: "Signed in from 3 different devices this semester", group: "Group 2" },
-      { id: 12, name: "Kweku Asante", index: "5251000044", attended: 7, total: 8, pct: 88,  device: "Pixel 6",      deviceId: "dev-012", flagged: false, group: "Group 2" },
-      { id: 13, name: "Adwoa Darko",  index: "5251000055", attended: 1, total: 8, pct: 13,  device: "Tecno Spark",  deviceId: "dev-013", flagged: false, group: "Group 3" },
+      { id: 9, name: "Ama Boateng", index: "5251000011", attended: 6, total: 8, pct: 75, device: "Samsung A53", deviceId: "dev-009", flagged: false, group: "Group 1" },
+      { id: 10, name: "Kofi Mensah", index: "5251000022", attended: 8, total: 8, pct: 100, device: "iPhone 14", deviceId: "dev-010", flagged: false, group: "Group 1" },
+      { id: 11, name: "Abena Osei", index: "5251000033", attended: 3, total: 8, pct: 38, device: "Multiple (3)", deviceId: null, flagged: true, alertType: "multi_device", flagReason: "Signed in from 3 different devices this semester", group: "Group 2" },
+      { id: 12, name: "Kweku Asante", index: "5251000044", attended: 7, total: 8, pct: 88, device: "Pixel 6", deviceId: "dev-012", flagged: false, group: "Group 2" },
+      { id: 13, name: "Adwoa Darko", index: "5251000055", attended: 1, total: 8, pct: 13, device: "Tecno Spark", deviceId: "dev-013", flagged: false, group: "Group 3" },
     ],
     sessions: [
-      { id: "ATT-3312", course: "ICTS201", date: "6/2/2026",  checkins: 4, status: "closed" },
+      { id: "ATT-3312", course: "ICTS201", date: "6/2/2026", checkins: 4, status: "closed" },
       { id: "ATT-2211", course: "ICTD310", date: "5/30/2026", checkins: 3, status: "closed" },
     ],
     progress: [
       { label: "Overall Attendance", value: 63, color: "#3b82f6" },
-      { label: "This Week",          value: 82, color: "#10b981" },
-      { label: "Below 75%",          value: 40, color: "#ef4444", raw: "3 students" },
+      { label: "This Week", value: 82, color: "#10b981" },
+      { label: "Below 75%", value: 40, color: "#ef4444", raw: "3 students" },
       { label: "Perfect Attendance", value: 20, color: "#f59e0b" },
     ],
     stats: { courses: 3, groups: 3, lowAttendance: 3, flagged: 1 },
@@ -82,19 +82,19 @@ const ALL_LEVELS = [
     ],
     groups: ["Group 1", "Group 2"],
     students: [
-      { id: 14, name: "Yaw Frempong", index: "5241000001", attended: 8, total: 8, pct: 100, device: "iPhone 13 Pro",  deviceId: "dev-014", flagged: false, group: "Group 1" },
-      { id: 15, name: "Akosua Ampah", index: "5241000002", attended: 5, total: 8, pct: 63,  device: "Changed device", deviceId: null,      flagged: true,  alertType: "device_change", flagReason: "Phone changed mid-semester: Huawei P30 → Samsung S22", group: "Group 1" },
-      { id: 16, name: "Kwame Ofori",  index: "5241000003", attended: 8, total: 8, pct: 100, device: "Pixel 7 Pro",    deviceId: "dev-016", flagged: false, group: "Group 2" },
-      { id: 17, name: "Efua Asiedu",  index: "5241000004", attended: 2, total: 8, pct: 25,  device: "Multiple (2)",   deviceId: null,      flagged: true,  alertType: "multi_device",  flagReason: "Two devices detected in same session: iPhone 11 & Oppo A57", group: "Group 2" },
+      { id: 14, name: "Yaw Frempong", index: "5241000001", attended: 8, total: 8, pct: 100, device: "iPhone 13 Pro", deviceId: "dev-014", flagged: false, group: "Group 1" },
+      { id: 15, name: "Akosua Ampah", index: "5241000002", attended: 5, total: 8, pct: 63, device: "Changed device", deviceId: null, flagged: true, alertType: "device_change", flagReason: "Phone changed mid-semester: Huawei P30 → Samsung S22", group: "Group 1" },
+      { id: 16, name: "Kwame Ofori", index: "5241000003", attended: 8, total: 8, pct: 100, device: "Pixel 7 Pro", deviceId: "dev-016", flagged: false, group: "Group 2" },
+      { id: 17, name: "Efua Asiedu", index: "5241000004", attended: 2, total: 8, pct: 25, device: "Multiple (2)", deviceId: null, flagged: true, alertType: "multi_device", flagReason: "Two devices detected in same session: iPhone 11 & Oppo A57", group: "Group 2" },
     ],
     sessions: [
-      { id: "ATT-7711", course: "ICTP150", date: "6/1/2026",  checkins: 3, status: "closed" },
+      { id: "ATT-7711", course: "ICTP150", date: "6/1/2026", checkins: 3, status: "closed" },
       { id: "ATT-5522", course: "ICTA301", date: "5/28/2026", checkins: 4, status: "closed" },
     ],
     progress: [
       { label: "Overall Attendance", value: 72, color: "#3b82f6" },
-      { label: "This Week",          value: 88, color: "#10b981" },
-      { label: "Below 75%",          value: 50, color: "#ef4444", raw: "2 students" },
+      { label: "This Week", value: 88, color: "#10b981" },
+      { label: "Below 75%", value: 50, color: "#ef4444", raw: "2 students" },
       { label: "Perfect Attendance", value: 50, color: "#f59e0b" },
     ],
     stats: { courses: 2, groups: 2, lowAttendance: 2, flagged: 2 },
@@ -108,17 +108,17 @@ const ALL_LEVELS = [
     ],
     groups: ["Group 1"],
     students: [
-      { id: 18, name: "Nana Ama Sarpong", index: "5231000010", attended: 7, total: 8, pct: 88,  device: "Samsung S23",   deviceId: "dev-018", flagged: false, group: "Group 1" },
-      { id: 19, name: "Fiifi Entsie",     index: "5231000011", attended: 8, total: 8, pct: 100, device: "iPhone 15 Pro", deviceId: "dev-019", flagged: false, group: "Group 1" },
-      { id: 20, name: "Maame Serwaa",     index: "5231000012", attended: 4, total: 8, pct: 50,  device: "Multiple (2)",  deviceId: null,      flagged: true,  alertType: "multi_device",  flagReason: "Checked in using 2 phones: own device + borrowed device detected", group: "Group 1" },
+      { id: 18, name: "Nana Ama Sarpong", index: "5231000010", attended: 7, total: 8, pct: 88, device: "Samsung S23", deviceId: "dev-018", flagged: false, group: "Group 1" },
+      { id: 19, name: "Fiifi Entsie", index: "5231000011", attended: 8, total: 8, pct: 100, device: "iPhone 15 Pro", deviceId: "dev-019", flagged: false, group: "Group 1" },
+      { id: 20, name: "Maame Serwaa", index: "5231000012", attended: 4, total: 8, pct: 50, device: "Multiple (2)", deviceId: null, flagged: true, alertType: "multi_device", flagReason: "Checked in using 2 phones: own device + borrowed device detected", group: "Group 1" },
     ],
     sessions: [
       { id: "ATT-9901", course: "ICPR401", date: "6/3/2026", checkins: 2, status: "closed" },
     ],
     progress: [
       { label: "Overall Attendance", value: 85, color: "#3b82f6" },
-      { label: "This Week",          value: 95, color: "#10b981" },
-      { label: "Below 75%",          value: 33, color: "#ef4444", raw: "1 student" },
+      { label: "This Week", value: 95, color: "#10b981" },
+      { label: "Below 75%", value: 33, color: "#ef4444", raw: "1 student" },
       { label: "Perfect Attendance", value: 67, color: "#f59e0b" },
     ],
     stats: { courses: 2, groups: 1, lowAttendance: 1, flagged: 1 },
@@ -306,7 +306,7 @@ function QRPlaceholder({ code, size = 200 }) {
   if (imgError) {
     const matrixSize = 21;
     const cellSize = size / matrixSize;
-    
+
     const hash = (r, c) => {
       let val = 0;
       const str = `${code}-${r}-${c}`;
@@ -406,7 +406,7 @@ function QRPlaceholder({ code, size = 200 }) {
 function AlertDetailModal({ student, onClose, onConfirm, onDelete }) {
   if (!student) return null;
 
-  const isMultiDevice  = student.alertType === "multi_device";
+  const isMultiDevice = student.alertType === "multi_device";
   const isDeviceChange = student.alertType === "device_change";
 
   // Parse device names from flagReason
@@ -484,7 +484,7 @@ function AlertDetailModal({ student, onClose, onConfirm, onDelete }) {
               <>
                 <p style={{ fontSize: 13, color: "#475569", lineHeight: 1.6, marginBottom: 12 }}>
                   This student's attendance was recorded from <strong>{multiDevices.length || 2} different
-                  devices</strong> during this semester. This may indicate that another person checked in
+                    devices</strong> during this semester. This may indicate that another person checked in
                   on their behalf (proxy attendance), which is a violation of attendance policy.
                 </p>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -593,62 +593,62 @@ function AlertDetailModal({ student, onClose, onConfirm, onDelete }) {
 export default function LecturerDashboard() {
   const navigate = useNavigate();
   const [showLevelModal, setShowLevelModal] = useState(true);
-  const [selectedLevel, setSelectedLevel]   = useState(null);
-  const [loadingLevel, setLoadingLevel]     = useState(false);
+  const [selectedLevel, setSelectedLevel] = useState(null);
+  const [loadingLevel, setLoadingLevel] = useState(false);
 
-  const [navItem, setNavItem]         = useState("dashboard");
+  const [navItem, setNavItem] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [tab, setTab]                 = useState("reports");
-  const [course, setCourse]           = useState("");
-  const [group, setGroup]             = useState("");
-  const [reportType, setReportType]   = useState("Cumulative Student Attendance");
+  const [tab, setTab] = useState("reports");
+  const [course, setCourse] = useState("");
+  const [group, setGroup] = useState("");
+  const [reportType, setReportType] = useState("Cumulative Student Attendance");
 
   // Lecturer details
   const [lecturerName, setLecturerName] = useState("Lecturer");
 
   // Database levels
-  const [levels, setLevels]           = useState([]);
+  const [levels, setLevels] = useState([]);
   const [loadingLevels, setLoadingLevels] = useState(true);
 
   // Loaded level states
-  const [students, setStudents]       = useState([]);
-  const [courses, setCourses]         = useState([]);
-  const [sessions, setSessions]       = useState([]);
-  const [groups, setGroups]           = useState([]);
-  const [stats, setStats]             = useState({ courses: 0, groups: 0, lowAttendance: 0, flagged: 0 });
+  const [students, setStudents] = useState([]);
+  const [courses, setCourses] = useState([]);
+  const [sessions, setSessions] = useState([]);
+  const [groups, setGroups] = useState([]);
+  const [stats, setStats] = useState({ courses: 0, groups: 0, lowAttendance: 0, flagged: 0 });
 
   // QR session
-  const [qrCourse, setQrCourse]           = useState("");
-  const [timeWindow, setTimeWindow]       = useState("10");
-  const [sessionCode, setSessionCode]     = useState(null);
+  const [qrCourse, setQrCourse] = useState("");
+  const [timeWindow, setTimeWindow] = useState("10");
+  const [sessionCode, setSessionCode] = useState(null);
   const [sessionActive, setSessionActive] = useState(false);
-  const [countdown, setCountdown]         = useState(0);
+  const [countdown, setCountdown] = useState(0);
   const timerRef = useRef(null);
 
   // Students tab
-  const [studentTab, setStudentTab]             = useState("all");
+  const [studentTab, setStudentTab] = useState("all");
   const [alertModalStudent, setAlertModalStudent] = useState(null);
-  const [flaggedList, setFlaggedList]           = useState([]);
+  const [flaggedList, setFlaggedList] = useState([]);
 
   // Manage courses state
   const [showCoursesModal, setShowCoursesModal] = useState(false);
-  const [newCourseCode, setNewCourseCode]       = useState("");
-  const [newCourseName, setNewCourseName]       = useState("");
-  const [coursesLoading, setCoursesLoading]     = useState(false);
+  const [newCourseCode, setNewCourseCode] = useState("");
+  const [newCourseName, setNewCourseName] = useState("");
+  const [coursesLoading, setCoursesLoading] = useState(false);
 
   // Course Rep Management state
-  const [courseReps, setCourseReps]   = useState([]);
+  const [courseReps, setCourseReps] = useState([]);
   const [repFirstName, setRepFirstName] = useState("");
-  const [repLastName, setRepLastName]   = useState("");
-  const [repEmail, setRepEmail]         = useState("");
-  const [repIndex, setRepIndex]         = useState("");
-  const [repCourse, setRepCourse]       = useState("");
-  const [repGroup, setRepGroup]         = useState("");
-  const [repPassword, setRepPassword]   = useState("");
-  const [repLoading, setRepLoading]     = useState(false);
+  const [repLastName, setRepLastName] = useState("");
+  const [repEmail, setRepEmail] = useState("");
+  const [repIndex, setRepIndex] = useState("");
+  const [repCourse, setRepCourse] = useState("");
+  const [repGroup, setRepGroup] = useState("");
+  const [repPassword, setRepPassword] = useState("");
+  const [repLoading, setRepLoading] = useState(false);
 
   // Groups tab state
-  const [selectedGroup, setSelectedGroup]           = useState("");
+  const [selectedGroup, setSelectedGroup] = useState("");
   const [groupStudentFilter, setGroupStudentFilter] = useState("all");
 
   const LEVEL_THEMES = {
@@ -708,7 +708,7 @@ export default function LecturerDashboard() {
   const handleAddCourse = async (e) => {
     e.preventDefault();
     if (!newCourseCode.trim() || !newCourseName.trim()) return;
-    
+
     setCoursesLoading(true);
     try {
       const res = await request("/api/courses/", {
@@ -724,13 +724,13 @@ export default function LecturerDashboard() {
         try {
           const errJson = await res.json();
           errText = errJson.message || errText;
-        } catch (e) {}
+        } catch (e) { }
         throw new Error(errText);
       }
       const json = await res.json();
-      
+
       if (!json.success) throw new Error(json.message || "Failed to create course");
-      
+
       if (selectedLevel) {
         await selectLevel(selectedLevel);
       }
@@ -747,7 +747,7 @@ export default function LecturerDashboard() {
 
   const handleDeleteCourse = async (courseCode) => {
     if (!confirm(`Are you sure you want to delete course ${courseCode}?`)) return;
-    
+
     setCoursesLoading(true);
     try {
       const res = await request(`/api/courses/${courseCode}/`, {
@@ -784,7 +784,7 @@ export default function LecturerDashboard() {
             });
             const json = await res.json();
             if (!json.success) throw new Error(json.message);
-            
+
             const updatedGroups = [...groups, trimmed].sort();
             setGroups(updatedGroups);
             setGroup(trimmed);
@@ -834,14 +834,15 @@ export default function LecturerDashboard() {
           index_number: repIndex.trim(),
           course_code: repCourse || (courses[0] ? courses[0].code : ""),
           group_id: repGroup || (groups[0] || "Group 1"),
-          password: repPassword.trim() || "password123"
+          password: repPassword.trim() || Math.random().toString(36).slice(-8)
         })
       });
       if (!res.ok) throw new Error(`Server returned status ${res.status}`);
       const json = await res.json();
       if (!json.success) throw new Error(json.message);
 
-      alert(`✓ ${json.message}\nLogin Password: ${repPassword.trim() || 'password123'}`);
+      const assignedPass = repPassword.trim() || 'Auto-generated secure password';
+      alert(`✓ ${json.message}\nLogin Password: ${assignedPass}`);
       setRepFirstName("");
       setRepLastName("");
       setRepEmail("");
@@ -862,7 +863,7 @@ export default function LecturerDashboard() {
       try {
         const u = JSON.parse(userStr);
         setLecturerName(u.first_name || "Lecturer");
-      } catch (e) {}
+      } catch (e) { }
     }
 
     loadLevels();
@@ -944,7 +945,7 @@ export default function LecturerDashboard() {
         setQrCourse(coursesList[0]?.code || "");
         setGroup(groupNames[0] || "Group 1");
         setSelectedGroup(groupNames[0] || "Group 1");
-        
+
         if (jsonAlert.success) {
           setFlaggedList(jsonAlert.data.filter(a => a.status === 'open'));
         } else {
@@ -976,7 +977,7 @@ export default function LecturerDashboard() {
       try {
         const resAlert = await request(`/api/alerts/?level_id=${lvl.id}`);
         if (resAlert.ok) jsonAlert = await resAlert.json();
-      } catch (e) {}
+      } catch (e) { }
 
       if (jsonSum.success && jsonBreak.success) {
         const enrichedStudents = jsonBreak.data.map(s => ({
@@ -1036,7 +1037,7 @@ export default function LecturerDashboard() {
       setStudents(prev => prev.map(s => s.id === student.id ? { ...s, flagged: false, flagReason: null } : s));
       setFlaggedList(prev => prev.filter(s => s.id !== student.id));
       setStats(prev => ({ ...prev, flagged: Math.max(0, prev.flagged - 1) }));
-      
+
       setSelectedLevel(prev => {
         if (!prev) return null;
         return {
@@ -1105,7 +1106,7 @@ export default function LecturerDashboard() {
         })
       });
       const json = await res.json();
-      
+
       if (json.success) {
         setSessionCode(json.data.id);
         setSessionActive(true);
@@ -1154,24 +1155,24 @@ export default function LecturerDashboard() {
   const fmtTime = s => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
   const pctBadge = (pct) => {
-    const bg   = pct === 100 ? "#dbeafe" : pct >= 75 ? "#d1fae5" : "#fee2e2";
+    const bg = pct === 100 ? "#dbeafe" : pct >= 75 ? "#d1fae5" : "#fee2e2";
     const text = pct === 100 ? "#1e40af" : pct >= 75 ? "#065f46" : "#991b1b";
     return <span style={{ background: bg, color: text, padding: "3px 10px", borderRadius: 20, fontSize: 12, fontWeight: 700 }}>{pct}%</span>;
   };
 
   const navLinks = [
-    { key: "dashboard", label: "Dashboard",   icon: LayoutDashboard },
-    { key: "reports",   label: "Reports",     icon: FileText },
-    { key: "students",  label: "Students",    icon: Users },
-    { key: "groups",    label: "Groups",      icon: Layers },
-    { key: "profile",   label: "My Profile & Reps", icon: Settings },
+    { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { key: "reports", label: "Reports", icon: FileText },
+    { key: "students", label: "Students", icon: Users },
+    { key: "groups", label: "Groups", icon: Layers },
+    { key: "profile", label: "My Profile & Reps", icon: Settings },
   ];
 
   const STATS = level ? [
-    { label: "Total Courses",  value: String(stats.courses),       icon: BookOpen,      color: "#3b82f6", bg: "#eff6ff" },
-    { label: "Student Groups", value: String(stats.groups),        icon: Users,         color: "#10b981", bg: "#ecfdf5" },
+    { label: "Total Courses", value: String(stats.courses), icon: BookOpen, color: "#3b82f6", bg: "#eff6ff" },
+    { label: "Student Groups", value: String(stats.groups), icon: Users, color: "#10b981", bg: "#ecfdf5" },
     { label: "Low Attendance", value: String(stats.lowAttendance), icon: AlertTriangle, color: "#ef4444", bg: "#fef2f2", sub: "Students below 75%" },
-    { label: "Device Alerts",  value: String(flaggedList.length),        icon: Smartphone,    color: "#f59e0b", bg: "#fffbeb", sub: "Flagged logins" },
+    { label: "Device Alerts", value: String(flaggedList.length), icon: Smartphone, color: "#f59e0b", bg: "#fffbeb", sub: "Flagged logins" },
   ] : [];
 
   // Group pie chart data
@@ -1179,7 +1180,7 @@ export default function LecturerDashboard() {
     if (!level) return [];
     const colors = ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ef4444"];
     return groups.map((g, i) => {
-      const gs  = students.filter(s => s.group === g);
+      const gs = students.filter(s => s.group === g);
       const avg = gs.length ? Math.round(gs.reduce((a, s) => a + s.pct, 0) / gs.length) : 0;
       return { label: g, value: gs.length, avg, color: colors[i % colors.length] };
     });
@@ -1269,21 +1270,21 @@ export default function LecturerDashboard() {
 
             {/* Add Course Form */}
             <form onSubmit={handleAddCourse} style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-              <input 
-                type="text" 
-                placeholder="Course Code (e.g. INF411)" 
-                value={newCourseCode} 
-                onChange={e => setNewCourseCode(e.target.value)} 
-                required 
-                style={{ flex: 0.8, padding: "8px 12px", border: "1px solid #cbd5e1", borderRadius: 8, fontSize: 13 }} 
+              <input
+                type="text"
+                placeholder="Course Code (e.g. INF411)"
+                value={newCourseCode}
+                onChange={e => setNewCourseCode(e.target.value)}
+                required
+                style={{ flex: 0.8, padding: "8px 12px", border: "1px solid #cbd5e1", borderRadius: 8, fontSize: 13 }}
               />
-              <input 
-                type="text" 
-                placeholder="Course Name" 
-                value={newCourseName} 
-                onChange={e => setNewCourseName(e.target.value)} 
-                required 
-                style={{ flex: 1.2, padding: "8px 12px", border: "1px solid #cbd5e1", borderRadius: 8, fontSize: 13 }} 
+              <input
+                type="text"
+                placeholder="Course Name"
+                value={newCourseName}
+                onChange={e => setNewCourseName(e.target.value)}
+                required
+                style={{ flex: 1.2, padding: "8px 12px", border: "1px solid #cbd5e1", borderRadius: 8, fontSize: 13 }}
               />
               <button type="submit" disabled={coursesLoading} style={{ padding: "8px 16px", background: "#3b82f6", color: "white", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
                 {coursesLoading ? "..." : "Add"}
@@ -1301,8 +1302,8 @@ export default function LecturerDashboard() {
                       <span style={{ fontWeight: 700, color: "#1e293b", fontSize: 13, marginRight: 8 }}>{c.code}</span>
                       <span style={{ color: "#64748b", fontSize: 13 }}>{c.name}</span>
                     </div>
-                    <button 
-                      onClick={() => handleDeleteCourse(c.code)} 
+                    <button
+                      onClick={() => handleDeleteCourse(c.code)}
                       style={{ background: "none", border: "none", color: "#ef4444", fontSize: 12, cursor: "pointer", fontWeight: 600 }}
                     >
                       Delete
@@ -1442,9 +1443,9 @@ export default function LecturerDashboard() {
             {/* Tabs */}
             <div style={{ display: "flex", gap: 0, background: "white", borderRadius: 12, padding: 4, marginBottom: 24, border: "1px solid #e2e8f0", width: "fit-content", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
               {[
-                { key: "reports", label: "Reports",    icon: BarChart2  },
-                { key: "qr",      label: "QR Session", icon: QrCode     },
-                { key: "charts",  label: "Charts",     icon: TrendingUp },
+                { key: "reports", label: "Reports", icon: BarChart2 },
+                { key: "qr", label: "QR Session", icon: QrCode },
+                { key: "charts", label: "Charts", icon: TrendingUp },
               ].map(({ key, label, icon: Icon }) => (
                 <button key={key} onClick={() => setTab(key)} style={{
                   display: "flex", alignItems: "center", gap: 8, padding: "9px 22px",
@@ -1708,8 +1709,8 @@ export default function LecturerDashboard() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16, marginBottom: 28 }}>
               {[
                 { label: "Enrolled Students", value: level.students.length, color: "#3b82f6", bg: "#eff6ff", icon: Users },
-                { label: "Avg. Attendance",   value: `${Math.round(level.students.reduce((a, s) => a + s.pct, 0) / level.students.length)}%`, color: "#10b981", bg: "#ecfdf5", icon: TrendingUp },
-                { label: "Groups Tracked",    value: level.groups.length,   color: "#8b5cf6", bg: "#f5f3ff", icon: Layers },
+                { label: "Avg. Attendance", value: `${Math.round(level.students.reduce((a, s) => a + s.pct, 0) / level.students.length)}%`, color: "#10b981", bg: "#ecfdf5", icon: TrendingUp },
+                { label: "Groups Tracked", value: level.groups.length, color: "#8b5cf6", bg: "#f5f3ff", icon: Layers },
               ].map(({ label, value, color, bg, icon: Icon }) => (
                 <div key={label} style={{ background: "white", borderRadius: 14, padding: "20px 22px", border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -1863,7 +1864,7 @@ export default function LecturerDashboard() {
             {/* Sub-tabs */}
             <div style={{ display: "flex", gap: 0, background: "white", borderRadius: 12, padding: 4, marginBottom: 20, border: "1px solid #e2e8f0", width: "fit-content", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
               {[
-                { key: "all",     label: "All Students", icon: Users },
+                { key: "all", label: "All Students", icon: Users },
                 { key: "flagged", label: "Device Alerts", icon: Smartphone, badge: flaggedList.length },
               ].map(({ key, label, icon: Icon, badge }) => (
                 <button key={key} onClick={() => setStudentTab(key)} style={{
@@ -1987,216 +1988,216 @@ export default function LecturerDashboard() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
               <div>
                 <h2 style={{ fontSize: 20, fontWeight: 700, color: "#0f172a", margin: 0 }}>Groups Roster & Performance</h2>
-                    <p style={{ fontSize: 13, color: "#64748b", margin: "4px 0 0" }}>
-                      {level.label} · {level.year} — Student attendance distribution across groups. Truant students (&lt;40%) highlighted.
-                    </p>
-                  </div>
-                  <button onClick={handleExportCSV} style={{ display: "flex", alignItems: "center", gap: 8, background: "#1e3a5f", color: "#60a5fa", border: "none", borderRadius: 9, padding: "9px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-                    <Download size={14} /> Export CSV
-                  </button>
-                </div>
+                <p style={{ fontSize: 13, color: "#64748b", margin: "4px 0 0" }}>
+                  {level.label} · {level.year} — Student attendance distribution across groups. Truant students (&lt;40%) highlighted.
+                </p>
+              </div>
+              <button onClick={handleExportCSV} style={{ display: "flex", alignItems: "center", gap: 8, background: "#1e3a5f", color: "#60a5fa", border: "none", borderRadius: 9, padding: "9px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                <Download size={14} /> Export CSV
+              </button>
+            </div>
 
-                {/* Group Selector Cards */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, marginBottom: 24 }}>
-                  {groups.map((gName, idx) => {
-                    const matchGroup = (sG, tG) => {
-                      if (!sG || !tG) return false;
-                      const sStr = String(sG).trim().toLowerCase().replace(/\s+/g, '');
-                      const tStr = String(tG).trim().toLowerCase().replace(/\s+/g, '');
-                      return sStr === tStr;
-                    };
+            {/* Group Selector Cards */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, marginBottom: 24 }}>
+              {groups.map((gName, idx) => {
+                const matchGroup = (sG, tG) => {
+                  if (!sG || !tG) return false;
+                  const sStr = String(sG).trim().toLowerCase().replace(/\s+/g, '');
+                  const tStr = String(tG).trim().toLowerCase().replace(/\s+/g, '');
+                  return sStr === tStr;
+                };
 
-                    const groupStudentsList = students.filter(s => matchGroup(s.group, gName));
-                    const totalInGroup = groupStudentsList.length;
-                    const avgPct = totalInGroup > 0 ? Math.round(groupStudentsList.reduce((acc, s) => acc + s.pct, 0) / totalInGroup) : 0;
-                    const truantCount = groupStudentsList.filter(s => s.pct < 40).length;
-                    const isSelected = matchGroup(selectedGroup || groups[0], gName);
+                const groupStudentsList = students.filter(s => matchGroup(s.group, gName));
+                const totalInGroup = groupStudentsList.length;
+                const avgPct = totalInGroup > 0 ? Math.round(groupStudentsList.reduce((acc, s) => acc + s.pct, 0) / totalInGroup) : 0;
+                const truantCount = groupStudentsList.filter(s => s.pct < 40).length;
+                const isSelected = matchGroup(selectedGroup || groups[0], gName);
 
-                    return (
-                      <div
-                        key={gName}
-                        onClick={() => setSelectedGroup(gName)}
-                        style={{
-                          background: "white",
-                          borderRadius: 16,
-                          padding: "18px 20px",
-                          border: isSelected ? "2px solid #3b82f6" : "1px solid #e2e8f0",
-                          boxShadow: isSelected ? "0 4px 14px rgba(59,130,246,0.12)" : "0 1px 4px rgba(0,0,0,0.04)",
-                          cursor: "pointer",
-                          transition: "all 0.2s ease"
-                        }}
-                      >
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                            <div style={{ width: 36, height: 36, borderRadius: 10, background: isSelected ? "#eff6ff" : "#f8fafc", color: isSelected ? "#2563eb" : "#64748b", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13, border: isSelected ? "1px solid #bfdbfe" : "1px solid #e2e8f0" }}>
-                              G{idx + 1}
-                            </div>
-                            <div>
-                              <div style={{ fontWeight: 700, fontSize: 15, color: "#0f172a" }}>{gName}</div>
-                              <div style={{ fontSize: 11, color: "#64748b" }}>{totalInGroup} Enrolled</div>
-                            </div>
-                          </div>
-                          {truantCount > 0 && (
-                            <span style={{ fontSize: 10, background: "#fef2f2", color: "#dc2626", padding: "2px 8px", borderRadius: 20, fontWeight: 700, border: "1px solid #fecaca" }}>
-                              ⚠ {truantCount} Truant
-                            </span>
-                          )}
+                return (
+                  <div
+                    key={gName}
+                    onClick={() => setSelectedGroup(gName)}
+                    style={{
+                      background: "white",
+                      borderRadius: 16,
+                      padding: "18px 20px",
+                      border: isSelected ? "2px solid #3b82f6" : "1px solid #e2e8f0",
+                      boxShadow: isSelected ? "0 4px 14px rgba(59,130,246,0.12)" : "0 1px 4px rgba(0,0,0,0.04)",
+                      cursor: "pointer",
+                      transition: "all 0.2s ease"
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: 10, background: isSelected ? "#eff6ff" : "#f8fafc", color: isSelected ? "#2563eb" : "#64748b", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13, border: isSelected ? "1px solid #bfdbfe" : "1px solid #e2e8f0" }}>
+                          G{idx + 1}
                         </div>
-
-                        <div style={{ marginTop: 6 }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 4 }}>
-                            <span style={{ color: "#64748b" }}>Avg Rate</span>
-                            <span style={{ fontWeight: 700, color: avgPct >= 75 ? "#16a34a" : avgPct >= 40 ? "#d97706" : "#dc2626" }}>{avgPct}%</span>
-                          </div>
-                          <div style={{ height: 6, background: "#f1f5f9", borderRadius: 10, overflow: "hidden" }}>
-                            <div style={{ height: "100%", width: `${avgPct}%`, background: avgPct >= 75 ? "#16a34a" : avgPct >= 40 ? "#f59e0b" : "#ef4444", borderRadius: 10, transition: "width 0.5s ease" }} />
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Group Detailed Roster Container */}
-                {(() => {
-                  const matchGroup = (sG, tG) => {
-                    if (!sG || !tG) return false;
-                    const sStr = String(sG).trim().toLowerCase().replace(/\s+/g, '');
-                    const tStr = String(tG).trim().toLowerCase().replace(/\s+/g, '');
-                    return sStr === tStr;
-                  };
-
-                  const activeGroupName = selectedGroup || groups[0] || "Group 1";
-                  const groupStudentsList = students.filter(s => matchGroup(s.group, activeGroupName));
-                  const truantStudentsList = groupStudentsList.filter(s => s.pct < 40);
-                  const punctualStudentsList = groupStudentsList.filter(s => s.pct >= 40);
-
-                  let displayedGroupStudents = groupStudentsList;
-                  if (groupStudentFilter === "punctual") {
-                    displayedGroupStudents = punctualStudentsList;
-                  } else if (groupStudentFilter === "truant") {
-                    displayedGroupStudents = truantStudentsList;
-                  }
-
-                  // Sort: High attendance rate first, low attendance rate at the bottom
-                  const sortedGroupStudents = [...displayedGroupStudents].sort((a, b) => b.pct - a.pct);
-
-                  return (
-                    <div style={{ background: "white", borderRadius: 16, border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)", overflow: "hidden" }}>
-                      <div style={{ padding: "20px 24px", borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
                         <div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                            <h3 style={{ fontSize: 17, fontWeight: 700, color: "#0f172a", margin: 0 }}>{activeGroupName} — Student Roster</h3>
-                            <span style={{ fontSize: 12, background: "#f1f5f9", color: "#475569", padding: "3px 10px", borderRadius: 20, fontWeight: 600 }}>
-                              {groupStudentsList.length} Students
-                            </span>
-                          </div>
-                          <p style={{ fontSize: 12, color: "#64748b", margin: "4px 0 0" }}>
-                            Students sorted by attendance. Low attendance rate (&lt;40%) placed at the bottom.
-                          </p>
-                        </div>
-
-                        {/* Category Filter Tabs */}
-                        <div style={{ display: "flex", gap: 4, background: "#f8fafc", padding: 4, borderRadius: 10, border: "1px solid #e2e8f0" }}>
-                          <button
-                            onClick={() => setGroupStudentFilter("all")}
-                            style={{
-                              padding: "7px 14px", borderRadius: 8, border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer",
-                              background: groupStudentFilter === "all" ? "#1e3a5f" : "transparent",
-                              color: groupStudentFilter === "all" ? "#60a5fa" : "#64748b"
-                            }}
-                          >
-                            All ({groupStudentsList.length})
-                          </button>
-                          <button
-                            onClick={() => setGroupStudentFilter("punctual")}
-                            style={{
-                              padding: "7px 14px", borderRadius: 8, border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer",
-                              background: groupStudentFilter === "punctual" ? "#16a34a" : "transparent",
-                              color: groupStudentFilter === "punctual" ? "white" : "#64748b"
-                            }}
-                          >
-                            Punctual (≥40%) ({punctualStudentsList.length})
-                          </button>
-                          <button
-                            onClick={() => setGroupStudentFilter("truant")}
-                            style={{
-                              padding: "7px 14px", borderRadius: 8, border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer",
-                              background: groupStudentFilter === "truant" ? "#ef4444" : "transparent",
-                              color: groupStudentFilter === "truant" ? "white" : "#64748b"
-                            }}
-                          >
-                            Truant (&lt;40%) ({truantStudentsList.length})
-                          </button>
+                          <div style={{ fontWeight: 700, fontSize: 15, color: "#0f172a" }}>{gName}</div>
+                          <div style={{ fontSize: 11, color: "#64748b" }}>{totalInGroup} Enrolled</div>
                         </div>
                       </div>
-
-                      {sortedGroupStudents.length === 0 ? (
-                        <div style={{ padding: 48, textAlign: "center", color: "#94a3b8" }}>
-                          <Users size={36} style={{ marginBottom: 12, opacity: 0.4 }} />
-                          <div style={{ fontWeight: 600 }}>No students in this category for {activeGroupName}</div>
-                        </div>
-                      ) : (
-                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                          <thead>
-                            <tr style={{ background: "#f8fafc" }}>
-                              {["#", "Student Name", "Index Number", "Attended / Total", "Attendance Rate", "Status"].map(h => (
-                                <th key={h} style={{ textAlign: "left", padding: "12px 18px", color: "#64748b", fontWeight: 600, fontSize: 12, borderBottom: "1px solid #e2e8f0" }}>{h}</th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {sortedGroupStudents.map((row, i) => {
-                              const isTruant = row.pct < 40;
-                              return (
-                                <tr key={row.id} style={{ background: isTruant ? "#fef2f2" : "white", borderBottom: "1px solid #f1f5f9" }}>
-                                  <td style={{ padding: "12px 18px", color: "#94a3b8", fontWeight: 500 }}>{i + 1}</td>
-                                  <td style={{ padding: "12px 18px" }}>
-                                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                                      <div style={{
-                                        width: 32, height: 32, borderRadius: 8,
-                                        background: isTruant ? "#fee2e2" : row.pct >= 75 ? "#dbeafe" : "#fef3c7",
-                                        color: isTruant ? "#dc2626" : row.pct >= 75 ? "#1e40af" : "#d97706",
-                                        display: "flex", alignItems: "center", justifyContent: "center",
-                                        fontSize: 12, fontWeight: 700, flexShrink: 0
-                                      }}>
-                                        {row.name.charAt(0)}
-                                      </div>
-                                      <div>
-                                        <div style={{ fontWeight: 600, color: "#0f172a" }}>{row.name}</div>
-                                        {row.flagged && <div style={{ fontSize: 10, color: "#dc2626", fontWeight: 600 }}>⚠ Device Flagged</div>}
-                                      </div>
-                                    </div>
-                                  </td>
-                                  <td style={{ padding: "12px 18px", color: "#64748b", fontSize: 13, fontWeight: 500 }}>{row.index}</td>
-                                  <td style={{ padding: "12px 18px", fontWeight: 600, color: "#1e293b" }}>
-                                    {row.attended} / {row.total} sessions
-                                  </td>
-                                  <td style={{ padding: "12px 18px" }}>{pctBadge(row.pct)}</td>
-                                  <td style={{ padding: "12px 18px" }}>
-                                    {isTruant ? (
-                                      <span style={{ fontSize: 11, background: "#fee2e2", color: "#dc2626", padding: "3px 10px", borderRadius: 20, fontWeight: 700, border: "1px solid #fecaca" }}>
-                                        ⚠ Truant (&lt;40%)
-                                      </span>
-                                    ) : row.pct >= 75 ? (
-                                      <span style={{ fontSize: 11, background: "#d1fae5", color: "#065f46", padding: "3px 10px", borderRadius: 20, fontWeight: 700, border: "1px solid #a7f3d0" }}>
-                                        ✓ Punctual
-                                      </span>
-                                    ) : (
-                                      <span style={{ fontSize: 11, background: "#fffbeb", color: "#b45309", padding: "3px 10px", borderRadius: 20, fontWeight: 700, border: "1px solid #fde68a" }}>
-                                        Moderate (≥40%)
-                                      </span>
-                                    )}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
+                      {truantCount > 0 && (
+                        <span style={{ fontSize: 10, background: "#fef2f2", color: "#dc2626", padding: "2px 8px", borderRadius: 20, fontWeight: 700, border: "1px solid #fecaca" }}>
+                          ⚠ {truantCount} Truant
+                        </span>
                       )}
                     </div>
-                  );
-                })()}
+
+                    <div style={{ marginTop: 6 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 4 }}>
+                        <span style={{ color: "#64748b" }}>Avg Rate</span>
+                        <span style={{ fontWeight: 700, color: avgPct >= 75 ? "#16a34a" : avgPct >= 40 ? "#d97706" : "#dc2626" }}>{avgPct}%</span>
+                      </div>
+                      <div style={{ height: 6, background: "#f1f5f9", borderRadius: 10, overflow: "hidden" }}>
+                        <div style={{ height: "100%", width: `${avgPct}%`, background: avgPct >= 75 ? "#16a34a" : avgPct >= 40 ? "#f59e0b" : "#ef4444", borderRadius: 10, transition: "width 0.5s ease" }} />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Group Detailed Roster Container */}
+            {(() => {
+              const matchGroup = (sG, tG) => {
+                if (!sG || !tG) return false;
+                const sStr = String(sG).trim().toLowerCase().replace(/\s+/g, '');
+                const tStr = String(tG).trim().toLowerCase().replace(/\s+/g, '');
+                return sStr === tStr;
+              };
+
+              const activeGroupName = selectedGroup || groups[0] || "Group 1";
+              const groupStudentsList = students.filter(s => matchGroup(s.group, activeGroupName));
+              const truantStudentsList = groupStudentsList.filter(s => s.pct < 40);
+              const punctualStudentsList = groupStudentsList.filter(s => s.pct >= 40);
+
+              let displayedGroupStudents = groupStudentsList;
+              if (groupStudentFilter === "punctual") {
+                displayedGroupStudents = punctualStudentsList;
+              } else if (groupStudentFilter === "truant") {
+                displayedGroupStudents = truantStudentsList;
+              }
+
+              // Sort: High attendance rate first, low attendance rate at the bottom
+              const sortedGroupStudents = [...displayedGroupStudents].sort((a, b) => b.pct - a.pct);
+
+              return (
+                <div style={{ background: "white", borderRadius: 16, border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)", overflow: "hidden" }}>
+                  <div style={{ padding: "20px 24px", borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <h3 style={{ fontSize: 17, fontWeight: 700, color: "#0f172a", margin: 0 }}>{activeGroupName} — Student Roster</h3>
+                        <span style={{ fontSize: 12, background: "#f1f5f9", color: "#475569", padding: "3px 10px", borderRadius: 20, fontWeight: 600 }}>
+                          {groupStudentsList.length} Students
+                        </span>
+                      </div>
+                      <p style={{ fontSize: 12, color: "#64748b", margin: "4px 0 0" }}>
+                        Students sorted by attendance. Low attendance rate (&lt;40%) placed at the bottom.
+                      </p>
+                    </div>
+
+                    {/* Category Filter Tabs */}
+                    <div style={{ display: "flex", gap: 4, background: "#f8fafc", padding: 4, borderRadius: 10, border: "1px solid #e2e8f0" }}>
+                      <button
+                        onClick={() => setGroupStudentFilter("all")}
+                        style={{
+                          padding: "7px 14px", borderRadius: 8, border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                          background: groupStudentFilter === "all" ? "#1e3a5f" : "transparent",
+                          color: groupStudentFilter === "all" ? "#60a5fa" : "#64748b"
+                        }}
+                      >
+                        All ({groupStudentsList.length})
+                      </button>
+                      <button
+                        onClick={() => setGroupStudentFilter("punctual")}
+                        style={{
+                          padding: "7px 14px", borderRadius: 8, border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                          background: groupStudentFilter === "punctual" ? "#16a34a" : "transparent",
+                          color: groupStudentFilter === "punctual" ? "white" : "#64748b"
+                        }}
+                      >
+                        Punctual (≥40%) ({punctualStudentsList.length})
+                      </button>
+                      <button
+                        onClick={() => setGroupStudentFilter("truant")}
+                        style={{
+                          padding: "7px 14px", borderRadius: 8, border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                          background: groupStudentFilter === "truant" ? "#ef4444" : "transparent",
+                          color: groupStudentFilter === "truant" ? "white" : "#64748b"
+                        }}
+                      >
+                        Truant (&lt;40%) ({truantStudentsList.length})
+                      </button>
+                    </div>
+                  </div>
+
+                  {sortedGroupStudents.length === 0 ? (
+                    <div style={{ padding: 48, textAlign: "center", color: "#94a3b8" }}>
+                      <Users size={36} style={{ marginBottom: 12, opacity: 0.4 }} />
+                      <div style={{ fontWeight: 600 }}>No students in this category for {activeGroupName}</div>
+                    </div>
+                  ) : (
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ background: "#f8fafc" }}>
+                          {["#", "Student Name", "Index Number", "Attended / Total", "Attendance Rate", "Status"].map(h => (
+                            <th key={h} style={{ textAlign: "left", padding: "12px 18px", color: "#64748b", fontWeight: 600, fontSize: 12, borderBottom: "1px solid #e2e8f0" }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sortedGroupStudents.map((row, i) => {
+                          const isTruant = row.pct < 40;
+                          return (
+                            <tr key={row.id} style={{ background: isTruant ? "#fef2f2" : "white", borderBottom: "1px solid #f1f5f9" }}>
+                              <td style={{ padding: "12px 18px", color: "#94a3b8", fontWeight: 500 }}>{i + 1}</td>
+                              <td style={{ padding: "12px 18px" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                  <div style={{
+                                    width: 32, height: 32, borderRadius: 8,
+                                    background: isTruant ? "#fee2e2" : row.pct >= 75 ? "#dbeafe" : "#fef3c7",
+                                    color: isTruant ? "#dc2626" : row.pct >= 75 ? "#1e40af" : "#d97706",
+                                    display: "flex", alignItems: "center", justifyContent: "center",
+                                    fontSize: 12, fontWeight: 700, flexShrink: 0
+                                  }}>
+                                    {row.name.charAt(0)}
+                                  </div>
+                                  <div>
+                                    <div style={{ fontWeight: 600, color: "#0f172a" }}>{row.name}</div>
+                                    {row.flagged && <div style={{ fontSize: 10, color: "#dc2626", fontWeight: 600 }}>⚠ Device Flagged</div>}
+                                  </div>
+                                </div>
+                              </td>
+                              <td style={{ padding: "12px 18px", color: "#64748b", fontSize: 13, fontWeight: 500 }}>{row.index}</td>
+                              <td style={{ padding: "12px 18px", fontWeight: 600, color: "#1e293b" }}>
+                                {row.attended} / {row.total} sessions
+                              </td>
+                              <td style={{ padding: "12px 18px" }}>{pctBadge(row.pct)}</td>
+                              <td style={{ padding: "12px 18px" }}>
+                                {isTruant ? (
+                                  <span style={{ fontSize: 11, background: "#fee2e2", color: "#dc2626", padding: "3px 10px", borderRadius: 20, fontWeight: 700, border: "1px solid #fecaca" }}>
+                                    ⚠ Truant (&lt;40%)
+                                  </span>
+                                ) : row.pct >= 75 ? (
+                                  <span style={{ fontSize: 11, background: "#d1fae5", color: "#065f46", padding: "3px 10px", borderRadius: 20, fontWeight: 700, border: "1px solid #a7f3d0" }}>
+                                    ✓ Punctual
+                                  </span>
+                                ) : (
+                                  <span style={{ fontSize: 11, background: "#fffbeb", color: "#b45309", padding: "3px 10px", borderRadius: 20, fontWeight: 700, border: "1px solid #fde68a" }}>
+                                    Moderate (≥40%)
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              );
+            })()}
           </main>
         )}
 
@@ -2301,7 +2302,7 @@ export default function LecturerDashboard() {
                     <label style={{ fontSize: 11, fontWeight: 700, color: "#64748b", display: "block", marginBottom: 4 }}>REP LOGIN PASSWORD</label>
                     <input
                       type="text"
-                      placeholder="e.g. rep123 (Default: password123)"
+                      placeholder="e.g. repSecret2026 (Leave empty for auto-generated)"
                       value={repPassword}
                       onChange={e => setRepPassword(e.target.value)}
                       style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, fontWeight: 600, color: "#2563eb" }}
@@ -2399,7 +2400,7 @@ export default function LecturerDashboard() {
               {/* Form to Add New Course */}
               <form onSubmit={handleAddCourse} style={{ background: "#f8fafc", padding: 18, borderRadius: 14, border: "1px solid #e2e8f0", marginBottom: 20 }}>
                 <div style={{ fontWeight: 700, fontSize: 14, color: "#0f172a", marginBottom: 12 }}>➕ Add New Course to My Dashboard</div>
-                
+
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 10, marginBottom: 12 }}>
                   <div>
                     <label style={{ fontSize: 11, fontWeight: 700, color: "#64748b", display: "block", marginBottom: 4 }}>COURSE CODE</label>
