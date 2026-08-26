@@ -46,6 +46,18 @@ export default function Login() {
 
   const isRight = panel === 'rep';
 
+  const switchPanel = (targetPanel) => {
+    setPanel(targetPanel);
+    setLectEmail('');
+    setLectPassword('');
+    setLectError('');
+    setLectSuccess('');
+    setRepEmail('');
+    setRepPassword('');
+    setRepError('');
+    setRepSuccess('');
+  };
+
   // ── Lecturer submit (Django Auth) ────────────────────────
   async function handleLecturerSubmit(e) {
     e.preventDefault();
@@ -194,7 +206,7 @@ export default function Login() {
             <div style={S.logo}>
               <img src={infotessLogo} alt="INFOTESS Logo" style={S.logoImg} />
             </div>
-            <h1 style={S.heading}>Course Rep Login</h1>
+            <h1 style={S.heading}>Course Rep Portal</h1>
             <div style={S.badge}><UserCheck size={14} /> Representative Access</div>
 
             {repError && <Alert type="error" msg={repError} />}
@@ -242,7 +254,7 @@ export default function Login() {
                 <h2 style={S.overlayHeading}>Lecturer DashBoard</h2>
                 <p style={S.overlayText}>Sign in with your faculty email and password to manage courses and view attendance reports.</p>
                 <FeaturePills items={['Live Tracking', 'Auto Reports', 'Analytics']} />
-                <button style={S.switchBtn} onClick={() => setPanel('lecturer')}>Switch to Lecturer</button>
+                <button style={S.switchBtn} onClick={() => switchPanel('lecturer')}>Switch to Lecturer</button>
               </>
             ) : (
               <>
@@ -250,7 +262,7 @@ export default function Login() {
                 <h2 style={S.overlayHeading}>Course Rep Dashboard</h2>
                 <p style={S.overlayText}>Manage attendance sessions, generate QR codes, and track student participation for your group.</p>
                 <FeaturePills items={['QR Generation', 'Check-in Mgmt', 'Reports']} />
-                <button style={S.switchBtn} onClick={() => setPanel('rep')}>Course Rep Login</button>
+                <button style={S.switchBtn} onClick={() => switchPanel('rep')}>Course Rep Portal</button>
               </>
             )}
           </div>
