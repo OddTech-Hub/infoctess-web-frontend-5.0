@@ -620,6 +620,7 @@ export default function LecturerDashboard() {
   // QR session
   const [qrCourse, setQrCourse] = useState("");
   const [timeWindow, setTimeWindow] = useState("10");
+  const [allowedRadius, setAllowedRadius] = useState("50");
   const [sessionCode, setSessionCode] = useState(null);
   const [sessionActive, setSessionActive] = useState(false);
   const [countdown, setCountdown] = useState(0);
@@ -1102,7 +1103,8 @@ export default function LecturerDashboard() {
         method: "POST",
         body: JSON.stringify({
           course_id: targetCourse,
-          time_window: timeWindow
+          time_window: timeWindow,
+          allowed_radius: parseInt(allowedRadius)
         })
       });
       const json = await res.json();
@@ -1582,6 +1584,26 @@ export default function LecturerDashboard() {
                       <ChevronDown size={14} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "#94a3b8" }} />
                     </div>
                   </div>
+                    <div style={{ marginBottom: 20 }}>
+                      <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6 }}>
+                        Geofence Attendance Radius
+                      </label>
+                      <div style={{ position: "relative" }}>
+                        <select
+                          value={allowedRadius}
+                          onChange={e => setAllowedRadius(e.target.value)}
+                          disabled={sessionActive}
+                          style={{ width: "100%", appearance: "none", padding: "10px 36px 10px 12px", border: "1px solid #e2e8f0", borderRadius: 9, fontSize: 13, background: sessionActive ? "#f8fafc" : "white", color: "#1e293b", cursor: "pointer" }}
+                        >
+                          <option value="25">25 meters (Small Classroom / Lab)</option>
+                          <option value="50">50 meters (Standard Lecture Room)</option>
+                          <option value="100">100 meters (Large Lecture Hall)</option>
+                          <option value="200">200 meters (Auditorium / Campus Complex)</option>
+                          <option value="500">500 meters (Open Quad / Outdoor)</option>
+                        </select>
+                        <ChevronDown size={14} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "#94a3b8" }} />
+                      </div>
+                    </div>
                   {!sessionActive ? (
                     <button onClick={openSession} style={{ width: "100%", padding: "12px", border: "none", borderRadius: 10, background: "linear-gradient(135deg,#1d4ed8,#3b82f6)", color: "white", fontWeight: 700, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
                       <QrCode size={16} /> Open Session
