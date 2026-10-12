@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+﻿import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import GetStarted from './pages/GetStarted';
 import Login from './pages/Login';
+import Portal from './pages/Portal';
 import LecturerDashboard from './pages/DashLecturer';
 import CourseRepDashboard from './pages/DashRep';
 import StudentDashboard from './pages/DashStudent';
@@ -21,6 +22,8 @@ export default function App() {
         <Route path="/" element={<GetStarted/>} />
         <Route path="/login" element={<Login />} />
         <Route path="/Login" element={<Navigate to="/login" replace />} />
+        <Route path="/portal" element={<Portal />} />
+        <Route path="/Portal" element={<Navigate to="/portal" replace />} />
         <Route path="/lec" element={<LecturerDashboard />} />
         <Route path="/rep" element={<CourseRepDashboard />} />
         <Route path="/student" element={<StudentDashboard />} />
@@ -30,4 +33,3 @@ export default function App() {
     </BrowserRouter>
   );
 }
-
