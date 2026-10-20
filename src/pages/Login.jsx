@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+﻿import { useState, useEffect } from 'react';
 import {
   LogIn, Eye, EyeOff, GraduationCap,
   ArrowLeft, AlertCircle, CheckCircle2, Loader2, QrCode, Smartphone
@@ -23,6 +23,11 @@ function saveWebUser(user, token) {
 export default function Login() {
   const navigate = useNavigate();
 
+  const [isSlid, setIsSlid] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setIsSlid(true), 60);
+    return () => clearTimeout(t);
+  }, []);
   const [indexNum, setIndexNum] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
@@ -85,7 +90,7 @@ export default function Login() {
 
       <div style={S.container}>
         {/* Left Form: Student Login */}
-        <div style={S.formPane}>
+        <div style={{ ...S.formPane, transform: isSlid ? 'translateX(100%)' : 'translateX(0)' }}>
           <form style={S.form} onSubmit={handleStudentSubmit}>
             <div style={S.logo}>
               <img src={infotessLogo} alt="INFOTESS Logo" style={S.logoImg} />
@@ -169,7 +174,7 @@ export default function Login() {
         </div>
 
         {/* Right Info Overlay Slider */}
-        <div style={S.overlay}>
+        <div style={{ ...S.overlay, transform: isSlid ? 'translateX(-100%)' : 'translateX(0)' }}>
           <div style={S.overlayInner}>
             <div style={S.overlayIcon}>
               <QrCode size={38} color="white" />
