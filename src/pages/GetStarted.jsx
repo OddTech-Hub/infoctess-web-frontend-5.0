@@ -157,7 +157,7 @@ export default function GetStarted() {
       fontSize: '14px',
       fontWeight: '600',
       letterSpacing: '1px',
-      whiteSpace: 'nowrap',
+      whiteSpace: 'normal', fontSize: 'clamp(11px, 2.5vw, 14px)',
     },
     heroContentArea: {
       position: 'relative',
@@ -174,8 +174,8 @@ export default function GetStarted() {
       color: '#ffffff',
     },
     heroLogoBox: {
-      width: '120px',
-      height: '120px',
+      width: 'clamp(70px, 16vw, 120px)',
+      height: 'clamp(70px, 16vw, 120px)',
       borderRadius: '16px',
       display: 'flex',
       alignItems: 'center',
@@ -183,30 +183,30 @@ export default function GetStarted() {
       margin: '0 auto 20px',
     },
     heroLogo: {
-      width: '110px',
-      height: '110px',
+      width: 'clamp(64px, 15vw, 110px)',
+      height: 'clamp(64px, 15vw, 110px)',
       objectFit: 'contain',
       borderRadius: '16px',
     },
     heroTitle: {
-      fontSize: '90px',
+      fontSize: 'clamp(32px, 8.5vw, 84px)',
       fontWeight: '830',
       marginBottom: '5px',
       letterSpacing: '2px',
     },
     heroSubtitle: {
-      fontSize: '34px',
+      fontSize: 'clamp(15px, 4vw, 28px)',
       fontWeight: '550',
       marginBottom: '10px',
       opacity: 0.9,
     },
     heroTagline: {
-      fontSize: '20px',
+      fontSize: 'clamp(13px, 3.2vw, 18px)',
       marginBottom: '20px',
       opacity: 0.8,
     },
     heroDesc: {
-      fontSize: '20px',
+      fontSize: 'clamp(13px, 3.2vw, 18px)',
       lineHeight: '1.6',
       marginBottom: '30px',
       opacity: 0.9,
@@ -271,7 +271,7 @@ export default function GetStarted() {
       color: '#040610ff',
     },
     featuresCardTitle: {
-      fontSize: '20px',
+      fontSize: 'clamp(13px, 3.2vw, 18px)',
       fontWeight: '600',
       marginBottom: '12px',
       color: '#040610ff',
@@ -343,7 +343,7 @@ export default function GetStarted() {
       padding: '20px',
       fontSize: '14px',
       overflow: 'hidden',
-      whiteSpace: 'nowrap',
+      whiteSpace: 'normal', fontSize: 'clamp(11px, 2.5vw, 14px)',
     },
     marquee: {
       display: 'inline-block',
@@ -436,8 +436,8 @@ export default function GetStarted() {
             </div>
             <h1 style={styles.heroTitle}>INFOCTESS</h1>
             {/* Exact text from screenshot */}
-            <p style={styles.heroSubtitle}>CLASSSMARTATTENDANCE</p>
-            <p style={styles.heroTagline}>TechnologyForDevelopment</p>
+            <p style={styles.heroSubtitle}>CLASS SMART ATTENDANCE</p>
+            <p style={styles.heroTagline}>Technology For Development</p>
             <p style={styles.heroDesc}>
               Redefining student attendance across all groups for each course with QR codes, session codes, and real-time dashboards.
             </p>
