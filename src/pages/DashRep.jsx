@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { request } from "../api/client";
+import { getRotatingSessionState } from "../utils/sessionCode";
 
 // ─── STATIC DATA FALLBACK ───────────────────────────────────────────────────
 
@@ -301,6 +302,8 @@ export default function CourseRepDashboard() {
   const [activeSession, setActiveSession] = useState(null);
   const [showModal, setShowModal]  = useState(false);
   const [newCheckin, setNewCheckin] = useState(null);
+  const [rotatingToken, setRotatingToken] = useState('');
+  const [rotatingSecs, setRotatingSecs] = useState(10);
 
   // Delete confirm
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -454,14 +457,27 @@ export default function CourseRepDashboard() {
     }
   }, [tab, fetchCheckedInStudents]);
 
-  // ── REAL-TIME BACKGROUND SYNC WITH MOBILE APP CHECKINS (Every 2.5s) ──
+  // ── 10-SECOND ROTATING SESSION CODE TIMER ──
+  useEffect(() => {
+    if (!activeSession) return;
+    const updateRotation = () => {
+      const state = getRotatingSessionState(activeSession.id);
+      setRotatingToken(state.token);
+      setRotatingSecs(state.secondsLeft);
+    };
+    updateRotation();
+    const rotInterval = setInterval(updateRotation, 500);
+    return () => clearInterval(rotInterval);
+  }, [activeSession]);
+
+  // ── REAL-TIME BACKGROUND SYNC (Every 1.5s for instant feedback across devices) ──
   useEffect(() => {
     const pollInterval = setInterval(() => {
       fetchSessions();
       if (tab === "students") {
         fetchCheckedInStudents();
       }
-    }, 2500);
+    }, 1500);
 
     return () => clearInterval(pollInterval);
   }, [fetchSessions, fetchCheckedInStudents, tab]);
@@ -717,11 +733,33 @@ export default function CourseRepDashboard() {
                 </div>
               </div>
 
-              <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: 2, color: "#0f172a", marginBottom: 2 }}>{activeSession.id}</div>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 6 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: 1 }}>Session: {activeSession.id}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+                  <div style={{ fontSize: 32, fontWeight: 900, letterSpacing: 4, color: "#1E5A87", fontFamily: "monospace" }}>
+                    {rotatingToken || "...."}
+                  </div>
+                  <span style={{ fontSize: 11, background: "#e0f2fe", color: "#0369a1", padding: "3px 8px", borderRadius: 12, fontWeight: 700 }}>
+                    10s Dynamic Code
+                  </span>
+                </div>
+                {/* 10s Progress countdown bar */}
+                <div style={{ width: 180, height: 6, background: "#e2e8f0", borderRadius: 4, overflow: "hidden", marginTop: 6 }}>
+                  <div style={{
+                    width: `${(rotatingSecs / 10) * 100}%`,
+                    height: "100%",
+                    background: rotatingSecs <= 3 ? "#ef4444" : "#2A6B9E",
+                    transition: "width 0.4s linear, background 0.3s ease"
+                  }} />
+                </div>
+                <div style={{ fontSize: 11, color: rotatingSecs <= 3 ? "#ef4444" : "#64748b", fontWeight: 600, marginTop: 4 }}>
+                  Refreshes in {rotatingSecs}s
+                </div>
+              </div>
               <div style={{ fontSize: 13, color: "#64748b", marginBottom: 16, fontWeight: 600, textAlign: "center" }}>{activeSession.courseName}</div>
 
               <div style={{ display: "flex", justifyContent: "center", marginBottom: 20, padding: 12, background: "#f8fafc", borderRadius: 16, border: "1px solid #e2e8f0" }}>
-                <QRVisual code={activeSession.id} size={200} />
+                <QRVisual code={activeSession.id + "-" + (rotatingToken || "0000")} size={200} />
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%" }}>

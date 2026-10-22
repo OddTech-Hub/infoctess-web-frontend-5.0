@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../api/config';
+import { Html5Qrcode } from 'html5-qrcode';
+import { extractBaseSessionId, validateRotatingCode } from '../utils/sessionCode';
 
 export default function DashStudent() {
   const navigate = useNavigate();
@@ -27,6 +29,8 @@ export default function DashStudent() {
   const [sessionCodeInput, setSessionCodeInput] = useState('');
   const [scanMethod, setScanMethod] = useState('camera'); // 'camera' | 'code'
   const [scanning, setScanning] = useState(false);
+  const [cameraActive, setCameraActive] = useState(false);
+  const scannerRef = useRef(null);
   const [checkingIn, setCheckingIn] = useState(false);
   const [checkinStatus, setCheckinStatus] = useState(null); // { type: 'success'|'error'|'warning', msg: '' }
 
@@ -51,6 +55,15 @@ export default function DashStudent() {
       navigate('/Login');
     }
   }, [navigate]);
+
+  // Real-time background sync: poll active sessions & attendance every 2s
+  useEffect(() => {
+    if (!student) return;
+    const interval = setInterval(() => {
+      loadStudentData(student);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [student]);
 
   // Request GPS location for geofencing
   const requestLocation = () => {
@@ -141,13 +154,40 @@ export default function DashStudent() {
     }
   };
 
-  // Execute student check-in
-  const handleCheckin = async (codeToSubmit) => {
-    const targetCode = (codeToSubmit || sessionCodeInput).trim().toUpperCase();
-    if (!targetCode) {
+  // Stop active camera scanner safely
+  const stopCameraScanner = async () => {
+    if (scannerRef.current) {
+      try {
+        await scannerRef.current.stop();
+        await scannerRef.current.clear();
+      } catch (e) {
+        console.warn("Camera stop notice:", e);
+      }
+      scannerRef.current = null;
+    }
+    setCameraActive(false);
+    setScanning(false);
+  };
+
+  // Execute student check-in (supports both 10s rotating code & base session code)
+  const handleCheckin = async (rawCodeToSubmit) => {
+    const raw = (rawCodeToSubmit || sessionCodeInput).trim().toUpperCase();
+    if (!raw) {
       setCheckinStatus({ type: 'error', msg: 'Please enter or scan a valid session code.' });
       return;
     }
+
+    // Identify matching active session
+    let matchedSession = activeSessions.find(s => {
+      const baseId = s.id || s.session_code;
+      return validateRotatingCode(raw, baseId);
+    });
+
+    // If not matched directly against rotating code, extract base id
+    const baseCode = matchedSession ? (matchedSession.id || matchedSession.session_code) : extractBaseSessionId(raw);
+
+    // Stop camera if running
+    await stopCameraScanner();
 
     setCheckingIn(true);
     setCheckinStatus(null);
@@ -159,7 +199,7 @@ export default function DashStudent() {
       const res = await requestApi('/api/sessions/checkin/', {
         method: 'POST',
         body: JSON.stringify({
-          session_code: targetCode,
+          session_code: baseCode,
           index_number: indexNum,
           method: scanMethod === 'camera' ? 'qr_code' : 'session_code',
           device_id: deviceId,
@@ -174,19 +214,18 @@ export default function DashStudent() {
       if (json.success) {
         setCheckinStatus({
           type: 'success',
-          msg: json.message || `Successfully marked Present for session ${targetCode}!`
+          msg: json.message || `Successfully marked Present for session ${baseCode}!`
         });
-        // Refresh student data
         if (student) loadStudentData(student);
         setTimeout(() => {
           setShowCheckinModal(false);
           setCheckinStatus(null);
           setSessionCodeInput('');
-        }, 2000);
+        }, 1800);
       } else {
         setCheckinStatus({
           type: 'error',
-          msg: json.message || 'Check-in failed. Please verify the session code.'
+          msg: json.message || 'Check-in failed. Session code may have expired or is invalid.'
         });
       }
     } catch (err) {
@@ -199,18 +238,44 @@ export default function DashStudent() {
     }
   };
 
-  // Simulating scanner trigger for QR scanning
-  const handleStartScanner = () => {
+  // Real device camera scanner using Html5Qrcode
+  const handleStartScanner = async () => {
     setScanning(true);
     setCheckinStatus(null);
 
-    // Simulate instant camera QR payload detection after 2 seconds
-    setTimeout(() => {
+    try {
+      if (scannerRef.current) {
+        await stopCameraScanner();
+      }
+
+      const html5QrCode = new Html5Qrcode("reader-qr");
+      scannerRef.current = html5QrCode;
+      setCameraActive(true);
+
+      const qrConfig = { fps: 15, qrbox: { width: 220, height: 220 } };
+
+      await html5QrCode.start(
+        { facingMode: "environment" },
+        qrConfig,
+        (decodedText) => {
+          console.log("QR scanned successfully:", decodedText);
+          handleCheckin(decodedText);
+        },
+        () => {}
+      );
+    } catch (err) {
+      console.warn("Camera hardware unavailable or denied:", err);
+      setCameraActive(false);
       setScanning(false);
-      const activeCode = activeSessions.length > 0 ? activeSessions[0].id : 'ATT-4869';
-      handleCheckin(activeCode);
-    }, 2200);
+      setCheckinStatus({
+        type: 'warning',
+        msg: 'Camera access denied or unavailable. You can enter the 10-second code directly below!'
+      });
+      setScanMethod('code');
+    }
   };
+
+
 
   const getInitials = (name) => {
     return name ? name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() : "ST";
@@ -444,7 +509,7 @@ export default function DashStudent() {
                 <QrCode size={20} color="#60a5fa" />
                 <span style={{ fontWeight: 700, fontSize: 16 }}>Mark Attendance</span>
               </div>
-              <button onClick={() => setShowCheckinModal(false)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 4 }}>
+              <button onClick={() => { stopCameraScanner(); setShowCheckinModal(false); }} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 4 }}>
                 <X size={20} />
               </button>
             </div>
@@ -495,23 +560,21 @@ export default function DashStudent() {
                 <div style={{ textAlign: 'center' }}>
                   <div style={{
                     position: 'relative', width: 240, height: 240, margin: '0 auto 20px',
-                    borderRadius: 20, overflow: 'hidden', background: '#1E5A87',
+                    borderRadius: 20, overflow: 'hidden', background: '#0f172a',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     border: '3px solid #2A6B9E'
                   }}>
-                    {scanning ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-                        <div style={{ width: 40, height: 40, borderRadius: '50%', border: '3px solid #1e293b', borderTopColor: '#60a5fa', animation: 'spin 0.8s linear infinite' }} />
-                        <span style={{ fontSize: 12, color: '#94a3b8' }}>Scanning QR Code payload…</span>
-                      </div>
-                    ) : (
-                      <div style={{ textAlign: 'center', padding: 20 }}>
-                        <QrCode size={64} color="#60a5fa" style={{ marginBottom: 12, opacity: 0.8 }} />
-                        <div style={{ fontSize: 12, color: '#cbd5e1' }}>Point camera at Lecturer's QR Code</div>
+                    <div id="reader-qr" style={{ width: '100%', height: '100%' }} />
+
+                    {!cameraActive && (
+                      <div style={{ position: 'absolute', inset: 0, background: '#1E5A87', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+                        <QrCode size={56} color="#60a5fa" style={{ marginBottom: 10, opacity: 0.9 }} />
+                        <div style={{ fontSize: 12, color: '#e2e8f0', fontWeight: 600 }}>Point camera at live rotating QR Code</div>
                       </div>
                     )}
+
                     {/* Scanner Reticle Frame */}
-                    <div style={{ position: 'absolute', inset: 20, border: '2px dashed rgba(255,255,255,0.4)', borderRadius: 12, pointerEvents: 'none' }} />
+                    <div style={{ position: 'absolute', inset: 16, border: '2px dashed rgba(255,255,255,0.6)', borderRadius: 14, pointerEvents: 'none' }} />
                   </div>
 
                   <button

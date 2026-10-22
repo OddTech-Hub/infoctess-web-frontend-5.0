@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { request } from "../api/client";
+import { getRotatingSessionState } from "../utils/sessionCode";
 
 // ─── ALL LEVELS DATA ──────────────────────────────────────────────────────────
 
@@ -622,6 +623,8 @@ export default function LecturerDashboard() {
   const [timeWindow, setTimeWindow] = useState("10");
   const [allowedRadius, setAllowedRadius] = useState("50");
   const [sessionCode, setSessionCode] = useState(null);
+  const [rotatingToken, setRotatingToken] = useState('');
+  const [rotatingSecs, setRotatingSecs] = useState(10);
   const [sessionActive, setSessionActive] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const timerRef = useRef(null);
@@ -1020,7 +1023,7 @@ export default function LecturerDashboard() {
     if (!selectedLevel) return;
     const syncInterval = setInterval(() => {
       silentRefreshLevel(selectedLevel);
-    }, 2500);
+    }, 1500);
 
     return () => clearInterval(syncInterval);
   }, [selectedLevel, silentRefreshLevel]);
@@ -1621,9 +1624,31 @@ export default function LecturerDashboard() {
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, color: "#10b981", fontWeight: 700, fontSize: 14 }}>
                         <Loader size={16} style={{ animation: "spin 2s linear infinite" }} /> Session Active
                       </div>
-                      <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: 3, color: "#1e293b", marginBottom: 16 }}>{sessionCode}</div>
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 12 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Base: {sessionCode}</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+                          <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: 3, color: "#1E5A87", fontFamily: "monospace" }}>
+                            {rotatingToken || "...."}
+                          </div>
+                          <span style={{ fontSize: 10, background: "#e0f2fe", color: "#0369a1", padding: "2px 8px", borderRadius: 12, fontWeight: 700 }}>
+                            10s Code
+                          </span>
+                        </div>
+                        {/* 10s Progress countdown bar */}
+                        <div style={{ width: 160, height: 5, background: "#e2e8f0", borderRadius: 4, overflow: "hidden", marginTop: 6 }}>
+                          <div style={{
+                            width: `${(rotatingSecs / 10) * 100}%`,
+                            height: "100%",
+                            background: rotatingSecs <= 3 ? "#ef4444" : "#2A6B9E",
+                            transition: "width 0.4s linear, background 0.3s ease"
+                          }} />
+                        </div>
+                        <div style={{ fontSize: 11, color: rotatingSecs <= 3 ? "#ef4444" : "#64748b", fontWeight: 600, marginTop: 4 }}>
+                          Refreshes in {rotatingSecs}s
+                        </div>
+                      </div>
                       <div style={{ padding: 12, background: "#f8fafc", borderRadius: 12, border: "1px solid #e2e8f0", marginBottom: 16 }}>
-                        <QRPlaceholder code={sessionCode} />
+                        <QRPlaceholder code={sessionCode + "-" + (rotatingToken || "0000")} />
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, background: countdown < 60 ? "#fef2f2" : "#eff6ff", color: countdown < 60 ? "#ef4444" : "#3b82f6", padding: "8px 20px", borderRadius: 40, fontWeight: 700, fontSize: 16 }}>
                         <Clock size={16} /> {fmtTime(countdown)}
