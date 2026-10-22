@@ -90,7 +90,7 @@ export default function Login() {
 
       <div style={S.container}>
         {/* Left Form: Student Login */}
-        <div style={{ ...S.formPane, transform: isSlid ? 'translateX(100%)' : 'translateX(0)' }}>
+        <div style={{ ...S.formPane, transform: 'none' }}>
           <form style={S.form} onSubmit={handleStudentSubmit}>
             <div style={S.logo}>
               <img src={infotessLogo} alt="INFOTESS Logo" style={S.logoImg} />

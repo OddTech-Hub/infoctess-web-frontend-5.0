@@ -220,25 +220,29 @@ export default function GetStarted() {
       flexWrap: 'wrap',
     },
     featuresSection: {
-      padding: '60px 19px',
+      padding: 'clamp(40px, 6vw, 70px) 16px',
       backgroundColor: '#f8f9fa',
-      minHeight: '100vh',
       display: 'flex',
       flexDirection: 'column',
       justifyContent: 'center',
+      boxSizing: 'border-box',
+      overflow: 'hidden',
     },
     featuresTitle: {
       textAlign: 'center',
-      fontSize: '36px',
+      fontSize: 'clamp(24px, 5vw, 36px)',
       fontWeight: '700',
-      marginBottom: '16px',
+      marginBottom: '12px',
       color: '#1a1a1a',
     },
     featuresSubtitle: {
       textAlign: 'center',
-      fontSize: '18px',
+      fontSize: 'clamp(14px, 3.2vw, 18px)',
       color: '#666',
-      marginBottom: '48px',
+      marginBottom: 'clamp(20px, 4vw, 40px)',
+      maxWidth: '700px',
+      margin: '0 auto clamp(20px, 4vw, 40px)',
+      padding: '0 12px',
     },
     featuresGrid: {
       maxWidth: '1200px',
@@ -402,6 +406,83 @@ export default function GetStarted() {
           .sign-in-pulse {
             animation: pulseBorder 1.5s infinite;
           }
+
+          .features-slider-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            padding: 10px 0;
+            width: 100%;
+            box-sizing: border-box;
+          }
+
+          .features-slider-card {
+            width: 100%;
+            box-sizing: border-box;
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+            border: 1px solid rgba(0,0,0,0.05);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+          }
+
+          .features-slider-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 22px rgba(30, 90, 135, 0.12);
+          }
+
+          .features-mobile-swipe-hint {
+            display: none;
+          }
+
+          @media (max-width: 768px) {
+            .features-slider-container {
+              display: flex !important;
+              flex-direction: row !important;
+              flex-wrap: nowrap !important;
+              overflow-x: auto !important;
+              overflow-y: hidden !important;
+              scroll-snap-type: x mandatory !important;
+              -webkit-overflow-scrolling: touch !important;
+              gap: 16px !important;
+              padding: 12px 16px 24px 16px !important;
+              scrollbar-width: thin !important;
+              scrollbar-color: #2A6B9E #e2e8f0 !important;
+            }
+
+            .features-slider-container::-webkit-scrollbar {
+              height: 6px;
+            }
+            .features-slider-container::-webkit-scrollbar-track {
+              background: #e2e8f0;
+              border-radius: 10px;
+            }
+            .features-slider-container::-webkit-scrollbar-thumb {
+              background: #2A6B9E;
+              border-radius: 10px;
+            }
+
+            .features-slider-card {
+              flex: 0 0 82% !important;
+              max-width: 320px !important;
+              min-width: 260px !important;
+              scroll-snap-align: center !important;
+              scroll-snap-stop: always !important;
+            }
+
+            .features-mobile-swipe-hint {
+              display: flex !important;
+              align-items: center;
+              justify-content: center;
+              gap: 8px;
+              color: #2A6B9E;
+              font-size: 13px;
+              font-weight: 500;
+              margin-top: 12px;
+              text-align: center;
+            }
+          }
+
         `}
       </style>
 
@@ -459,47 +540,33 @@ export default function GetStarted() {
       <section style={styles.featuresSection}>
         <h2 style={styles.featuresTitle}>How It Works</h2>
         <p style={styles.featuresSubtitle}>Simple, fast, and reliable attendance tracking for your university courses</p>
-        <div style={styles.featuresGrid}>
-          <div style={styles.card} className="card">
-            <div style={styles.cardContent}>
-              <div style={styles.featuresIconBox}><QrCode size={30} /></div>
-              <h3 style={styles.featuresCardTitle}>QR Code & Session Codes</h3>
-              <p style={styles.featuresCardDesc}>Course reps generate QR codes and session codes. Students scan or type to check in instantly.</p>
+                <div style={styles.featuresGrid}>
+          <div className="features-slider-container">
+            <div className="features-slider-card">
+              <div style={styles.cardContent}>
+                <div style={styles.featuresIconBox}><QrCode size={30} /></div>
+                <h3 style={styles.featuresCardTitle}>QR Code & Session Codes</h3>
+                <p style={styles.featuresCardDesc}>Course reps generate QR codes and session codes. Students scan or type to check in instantly.</p>
+              </div>
+            </div>
+            <div className="features-slider-card">
+              <div style={styles.cardContent}>
+                <div style={styles.featuresIconBox}><Users size={30} /></div>
+                <h3 style={styles.featuresCardTitle}>Group-Based Management</h3>
+                <p style={styles.featuresCardDesc}>Custom student groups, each with a course representative managing attendance for all registered courses.</p>
+              </div>
+            </div>
+            <div className="features-slider-card">
+              <div style={styles.cardContent}>
+                <div style={styles.featuresIconBox}><BarChart3 size={30} /></div>
+                <h3 style={styles.featuresCardTitle}>Real-Time Reports</h3>
+                <p style={styles.featuresCardDesc}>Lecturers view live attendance data. Students below 75% are automatically flagged.</p>
+              </div>
             </div>
           </div>
-          <div style={styles.card} className="card">
-            <div style={styles.cardContent}>
-              <div style={styles.featuresIconBox}><Users size={30} /></div>
-              <h3 style={styles.featuresCardTitle}>Group-Based Management</h3>
-              <p style={styles.featuresCardDesc}>Custom student groups, each with a course representative managing attendance for all registered courses.</p>
-            </div>
-          </div>
-          <div style={styles.card} className="card">
-            <div style={styles.cardContent}>
-              <div style={styles.featuresIconBox}><BarChart3 size={30} /></div>
-              <h3 style={styles.featuresCardTitle}>Real-Time Reports</h3>
-              <p style={styles.featuresCardDesc}>Lecturers view live attendance data. Students below 75% are automatically flagged.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section style={styles.whySection}>
-        <div style={styles.whyContainer}>
-          <h2 style={styles.featuresTitle}>Why INFOCTESS SMART REGISTER?</h2>
-          <div style={styles.whyGrid}>
-            <div style={styles.whyItem}>
-              <div style={{ ...styles.whyIconBox, ...styles.whyIconBoxGreen }}><CheckCircle size={24} /></div>
-              <div><h4 style={styles.whyItemTitle}>Accurate Tracking</h4><p style={styles.whyItemDesc}>Proximity-based verification ensures students are physically present in the classroom.</p></div>
-            </div>
-            <div style={styles.whyItem}>
-              <div style={{ ...styles.whyIconBox, ...styles.whyIconBoxBlue }}><Shield size={24} /></div>
-              <div><h4 style={styles.whyItemTitle}>Secure & Reliable</h4><p style={styles.whyItemDesc}>Session codes expire automatically and QR codes are unique per session.</p></div>
-            </div>
-            <div style={styles.whyItem}>
-              <div style={{ ...styles.whyIconBox, ...styles.whyIconBoxAmber }}><Clock size={24} /></div>
-              <div><h4 style={styles.whyItemTitle}>Real-Time Data</h4><p style={styles.whyItemDesc}>Instant attendance reports for lecturers and students alike.</p></div>
-            </div>
+          <div className="features-mobile-swipe-hint">
+            <span>Swipe left & right to view more</span>
+            <span>&rarr;</span>
           </div>
         </div>
       </section>
