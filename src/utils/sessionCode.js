@@ -1,13 +1,13 @@
 /**
- * 10-Second Dynamic Rotating Session Code Utilities
+ * 30-Second Dynamic Rotating Session Code Utilities
  *
  * Implements a time-synchronized rotating passcode system:
- * - Generates a 4-digit numeric dynamic token every 10 seconds.
+ * - Generates a 4-digit numeric dynamic token every 30 seconds.
  * - Formats complete session code: e.g. "ATT-4869-7294" or dynamic code "7294".
- * - Allows a 1-window grace period (previous 10s window) to accommodate network transit time.
+ * - Allows a 1-window grace period (previous 30s window) to accommodate network transit time.
  */
 
-const WINDOW_SECONDS = 10;
+const WINDOW_SECONDS = 30;
 
 /**
  * Computes a pseudo-random 4-digit integer from a seed string and time slot index.
@@ -19,13 +19,12 @@ function hashSlot(seed, slot) {
     hash = ((hash << 5) - hash) + str.charCodeAt(i);
     hash |= 0;
   }
-  // Convert to absolute value and format as a 4-digit code (1000 - 9999)
   const code = Math.abs(hash % 9000) + 1000;
   return String(code);
 }
 
 /**
- * Returns the current rotating token, seconds remaining in this 10s cycle, and full dynamic code.
+ * Returns the current rotating token, seconds remaining in this 30s cycle, and full dynamic code.
  * @param {string} baseSessionId E.g., 'ATT-4869'
  */
 export function getRotatingSessionState(baseSessionId) {
@@ -48,7 +47,7 @@ export function getRotatingSessionState(baseSessionId) {
 
 /**
  * Validates a submitted code against the baseSessionId for either the current
- * or the immediately preceding 10-second window.
+ * or the immediately preceding 30-second window.
  */
 export function validateRotatingCode(submittedCode, baseSessionId) {
   if (!submittedCode || !baseSessionId) return false;

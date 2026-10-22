@@ -303,7 +303,9 @@ export default function CourseRepDashboard() {
   const [showModal, setShowModal]  = useState(false);
   const [newCheckin, setNewCheckin] = useState(null);
   const [rotatingToken, setRotatingToken] = useState('');
-  const [rotatingSecs, setRotatingSecs] = useState(10);
+  const [rotatingSecs, setRotatingSecs] = useState(30);
+  const [allowedRadius, setAllowedRadius] = useState(50);
+  const [showConfigModal, setShowConfigModal] = useState(false);
 
   // Delete confirm
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -457,7 +459,7 @@ export default function CourseRepDashboard() {
     }
   }, [tab, fetchCheckedInStudents]);
 
-  // ── 10-SECOND ROTATING SESSION CODE TIMER ──
+  // ── 30-SECOND ROTATING SESSION CODE TIMER ──
   useEffect(() => {
     if (!activeSession) return;
     const updateRotation = () => {
@@ -502,7 +504,8 @@ export default function CourseRepDashboard() {
         method: "POST",
         body: JSON.stringify({
           course_id: selectedCourse,
-          time_window: timeWindow
+          time_window: parseInt(timeWindow),
+          allowed_radius: parseInt(allowedRadius)
         })
       });
       const json = await res.json();
@@ -611,14 +614,23 @@ export default function CourseRepDashboard() {
             <h1 style={{ fontSize: 24, fontWeight: 800, color: "#0f172a", margin: "0 0 4px" }}>Course Representative Portal</h1>
             <p style={{ fontSize: 13, color: "#64748b", margin: 0 }}>Create and manage live attendance check-in sessions for your group.</p>
           </div>
-          <button onClick={openSession} style={{
-            display: "flex", alignItems: "center", gap: 8, padding: "10px 18px",
-            borderRadius: 10, background: "linear-gradient(135deg,#1d4ed8,#2563eb)",
-            color: "white", border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer",
-            boxShadow: "0 4px 12px rgba(37,99,235,0.25)"
-          }}>
-            <Plus size={16} /> Open QR Session
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button onClick={() => setShowConfigModal(true)} style={{
+              display: "flex", alignItems: "center", gap: 6, padding: "10px 16px",
+              borderRadius: 10, background: "#f1f5f9", color: "#334155",
+              border: "1px solid #cbd5e1", fontWeight: 700, fontSize: 13, cursor: "pointer"
+            }}>
+              ⚙️ Session Settings ({timeWindow}m • {allowedRadius}m)
+            </button>
+            <button onClick={openSession} style={{
+              display: "flex", alignItems: "center", gap: 8, padding: "10px 20px",
+              borderRadius: 10, background: "linear-gradient(135deg,#1d4ed8,#2563eb)",
+              color: "white", border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer",
+              boxShadow: "0 4px 12px rgba(37,99,235,0.25)"
+            }}>
+              <Plus size={16} /> Open QR Session
+            </button>
+          </div>
         </header>
 
         {/* SUMMARY CARDS */}
@@ -711,6 +723,124 @@ export default function CourseRepDashboard() {
         )}
       </main>
 
+            {/* SESSION PARAMETERS CONFIG MODAL (Duration up to 100m & Geofence Slider) */}
+      {showConfigModal && (
+        <div style={{
+          position: "fixed", inset: 0, background: "rgba(15,23,42,0.65)", backdropFilter: "blur(4px)",
+          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 110, padding: 20
+        }}>
+          <div style={{
+            background: "white", borderRadius: 20, padding: 28, width: 480, maxWidth: "95%",
+            boxShadow: "0 20px 40px rgba(0,0,0,0.2)", display: "flex", flexDirection: "column", gap: 20
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <h3 style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", margin: 0 }}>Attendance Session Controls</h3>
+                <p style={{ fontSize: 12, color: "#64748b", margin: "4px 0 0" }}>Adjust duration and geofence radius for your lecture hall</p>
+              </div>
+              <button onClick={() => setShowConfigModal(false)} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#94a3b8" }}>✕</button>
+            </div>
+
+            {/* Course Selector */}
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 700, color: "#475569", display: "block", marginBottom: 6 }}>SELECT COURSE</label>
+              <select
+                value={selectedCourse}
+                onChange={e => setSelectedCourse(e.target.value)}
+                style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: 13, fontWeight: 600, color: "#0f172a" }}
+              >
+                {courses.map(c => <option key={c.code} value={c.code}>{c.code} — {c.name}</option>)}
+              </select>
+            </div>
+
+            {/* Duration Selector (Up to 100 mins) */}
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: "#475569" }}>SESSION TIME DURATION (MAX 100 MINS)</label>
+                <span style={{ fontSize: 13, fontWeight: 800, color: "#2563eb" }}>{timeWindow} minutes</span>
+              </div>
+              <input
+                type="range"
+                min="5"
+                max="100"
+                step="5"
+                value={timeWindow}
+                onChange={e => setTimeWindow(e.target.value)}
+                style={{ width: "100%", cursor: "pointer", accentColor: "#2563eb" }}
+              />
+              <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                {[10, 20, 30, 45, 60, 90, 100].map(mins => (
+                  <button
+                    key={mins}
+                    type="button"
+                    onClick={() => setTimeWindow(String(mins))}
+                    style={{
+                      padding: "4px 10px", borderRadius: 8, border: "1px solid #cbd5e1",
+                      background: String(timeWindow) === String(mins) ? "#2563eb" : "#f8fafc",
+                      color: String(timeWindow) === String(mins) ? "white" : "#475569",
+                      fontSize: 11, fontWeight: 700, cursor: "pointer"
+                    }}
+                  >
+                    {mins}m
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Geofencing Radius Slider */}
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: "#475569" }}>GEOFENCE CLASSROOM RADIUS</label>
+                <span style={{ fontSize: 13, fontWeight: 800, color: "#16a34a" }}>{allowedRadius} meters</span>
+              </div>
+              <input
+                type="range"
+                min="10"
+                max="500"
+                step="10"
+                value={allowedRadius}
+                onChange={e => setAllowedRadius(parseInt(e.target.value))}
+                style={{ width: "100%", cursor: "pointer", accentColor: "#16a34a" }}
+              />
+              <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                {[
+                  { r: 25, label: "Small Lab (25m)" },
+                  { r: 50, label: "Standard Class (50m)" },
+                  { r: 100, label: "Large Hall (100m)" },
+                  { r: 200, label: "Auditorium (200m)" },
+                  { r: 350, label: "Complex (350m)" }
+                ].map(opt => (
+                  <button
+                    key={opt.r}
+                    type="button"
+                    onClick={() => setAllowedRadius(opt.r)}
+                    style={{
+                      padding: "4px 8px", borderRadius: 8, border: "1px solid #cbd5e1",
+                      background: allowedRadius === opt.r ? "#16a34a" : "#f8fafc",
+                      color: allowedRadius === opt.r ? "white" : "#475569",
+                      fontSize: 11, fontWeight: 600, cursor: "pointer"
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button
+              onClick={() => { setShowConfigModal(false); openSession(); }}
+              style={{
+                width: "100%", padding: "12px", borderRadius: 12, border: "none",
+                background: "linear-gradient(135deg,#1d4ed8,#2563eb)", color: "white",
+                fontWeight: 700, fontSize: 14, cursor: "pointer", marginTop: 4
+              }}
+            >
+              Start Session ({timeWindow} mins, {allowedRadius}m radius)
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ACTIVE QR MODAL WITH REAL-TIME CHECKIN FEED & PDF EXPORT */}
       {showModal && activeSession && (
         <div style={{
@@ -740,13 +870,13 @@ export default function CourseRepDashboard() {
                     {rotatingToken || "...."}
                   </div>
                   <span style={{ fontSize: 11, background: "#e0f2fe", color: "#0369a1", padding: "3px 8px", borderRadius: 12, fontWeight: 700 }}>
-                    10s Dynamic Code
+                    30s Dynamic Code
                   </span>
                 </div>
                 {/* 10s Progress countdown bar */}
                 <div style={{ width: 180, height: 6, background: "#e2e8f0", borderRadius: 4, overflow: "hidden", marginTop: 6 }}>
                   <div style={{
-                    width: `${(rotatingSecs / 10) * 100}%`,
+                    width: `${(rotatingSecs / 30) * 100}%`,
                     height: "100%",
                     background: rotatingSecs <= 3 ? "#ef4444" : "#2A6B9E",
                     transition: "width 0.4s linear, background 0.3s ease"

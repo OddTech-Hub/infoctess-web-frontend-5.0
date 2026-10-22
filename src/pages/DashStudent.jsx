@@ -125,27 +125,55 @@ export default function DashStudent() {
         });
       }
 
-      // 2. Fetch summary to get list of sessions & active sessions for this student's level/group
+      // 2. Fetch live sessions directly from /api/sessions/ for 100% real-time session discovery
+      let liveActiveList = [];
+      try {
+        const resLive = await requestApi('/api/sessions/');
+        const jsonLive = await resLive.json();
+        if (jsonLive.success && Array.isArray(jsonLive.data)) {
+          liveActiveList = jsonLive.data
+            .filter(s => s.status === 'active')
+            .map(s => ({
+              id: s.id || s.session_code,
+              session_code: s.id || s.session_code,
+              course: {
+                id: s.course,
+                code: s.courseCode || 'ICTE',
+                name: s.courseName || 'Course Attendance'
+              },
+              time_window: s.timeWindow || s.time_window || 30,
+              status: 'active'
+            }));
+        }
+      } catch (errLive) {
+        console.warn("Live sessions fetch:", errLive);
+      }
+
+      // Also fetch summary for course breakdown and attendance history
       const resSum = await requestApi(`/api/reports/summary/${levelCode}/`);
       const jsonSum = await resSum.json();
 
       if (jsonSum.success && jsonSum.data) {
         const allSessions = jsonSum.data.sessions || [];
-        // Filter active sessions
-        const activeList = allSessions.filter(s => s.status === 'active');
-        setActiveSessions(activeList);
+        const summaryActive = allSessions.filter(s => s.status === 'active');
+        
+        // Prioritize live session list from /api/sessions/
+        const combinedActive = liveActiveList.length > 0 ? liveActiveList : summaryActive;
+        setActiveSessions(combinedActive);
         setCourses(jsonSum.data.courses || []);
         
         // Form history log
         const formattedHistory = allSessions.map(s => ({
           id: s.id,
-          courseCode: s.course.code,
-          courseName: s.course.name,
-          date: new Date(s.opened_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }),
-          time: new Date(s.opened_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          courseCode: s.course?.code || s.courseCode || 'ICTE',
+          courseName: s.course?.name || s.courseName || 'Class Session',
+          date: s.opened_at ? new Date(s.opened_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : (s.date || new Date().toLocaleDateString()),
+          time: s.opened_at ? new Date(s.opened_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (s.time || '10:00 AM'),
           status: 'Present',
         }));
         setAttendanceHistory(formattedHistory);
+      } else if (liveActiveList.length > 0) {
+        setActiveSessions(liveActiveList);
       }
     } catch (err) {
       console.error("Error loading student data:", err);
@@ -196,7 +224,7 @@ export default function DashStudent() {
       const indexNum = student?.index_number || student?.username;
       const deviceId = sessionStorage.getItem('device_id') || `dev-web-${student?.id || '001'}`;
 
-      const res = await requestApi('/api/sessions/checkin/', {
+      const res = await requestApi('/api/checkin/', {
         method: 'POST',
         body: JSON.stringify({
           session_code: baseCode,

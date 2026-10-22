@@ -624,7 +624,7 @@ export default function LecturerDashboard() {
   const [allowedRadius, setAllowedRadius] = useState("50");
   const [sessionCode, setSessionCode] = useState(null);
   const [rotatingToken, setRotatingToken] = useState('');
-  const [rotatingSecs, setRotatingSecs] = useState(10);
+  const [rotatingSecs, setRotatingSecs] = useState(30);
   const [sessionActive, setSessionActive] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const timerRef = useRef(null);
@@ -1582,7 +1582,7 @@ export default function LecturerDashboard() {
                     <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6 }}>Time Window</label>
                     <div style={{ position: "relative" }}>
                       <select value={timeWindow} onChange={e => setTimeWindow(e.target.value)} disabled={sessionActive} style={{ width: "100%", appearance: "none", padding: "10px 36px 10px 12px", border: "1px solid #e2e8f0", borderRadius: 9, fontSize: 13, background: sessionActive ? "#f8fafc" : "white", color: "#1e293b", cursor: "pointer" }}>
-                        {["5", "10", "15", "20", "30"].map(t => <option key={t} value={t}>{t} minutes</option>)}
+                        {["5", "10", "15", "20", "30", "45", "60", "75", "90", "100"].map(t => <option key={t} value={t}>{t} minutes</option>)}
                       </select>
                       <ChevronDown size={14} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "#94a3b8" }} />
                     </div>
@@ -1598,11 +1598,13 @@ export default function LecturerDashboard() {
                           disabled={sessionActive}
                           style={{ width: "100%", appearance: "none", padding: "10px 36px 10px 12px", border: "1px solid #e2e8f0", borderRadius: 9, fontSize: 13, background: sessionActive ? "#f8fafc" : "white", color: "#1e293b", cursor: "pointer" }}
                         >
-                          <option value="25">25 meters (Small Classroom / Lab)</option>
+                          <option value="15">15 meters (Compact Lab / Tutorial Room)</option>
+                          <option value="25">25 meters (Small Classroom / Computer Lab)</option>
                           <option value="50">50 meters (Standard Lecture Room)</option>
                           <option value="100">100 meters (Large Lecture Hall)</option>
                           <option value="200">200 meters (Auditorium / Campus Complex)</option>
-                          <option value="500">500 meters (Open Quad / Outdoor)</option>
+                          <option value="350">350 meters (Multi-tier Amphitheater)</option>
+                          <option value="500">500 meters (Open Quad / Outdoor Ground)</option>
                         </select>
                         <ChevronDown size={14} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "#94a3b8" }} />
                       </div>
@@ -1631,13 +1633,13 @@ export default function LecturerDashboard() {
                             {rotatingToken || "...."}
                           </div>
                           <span style={{ fontSize: 10, background: "#e0f2fe", color: "#0369a1", padding: "2px 8px", borderRadius: 12, fontWeight: 700 }}>
-                            10s Code
+                            30s Code
                           </span>
                         </div>
                         {/* 10s Progress countdown bar */}
                         <div style={{ width: 160, height: 5, background: "#e2e8f0", borderRadius: 4, overflow: "hidden", marginTop: 6 }}>
                           <div style={{
-                            width: `${(rotatingSecs / 10) * 100}%`,
+                            width: `${(rotatingSecs / 30) * 100}%`,
                             height: "100%",
                             background: rotatingSecs <= 3 ? "#ef4444" : "#2A6B9E",
                             transition: "width 0.4s linear, background 0.3s ease"
