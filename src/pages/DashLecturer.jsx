@@ -3,7 +3,7 @@ import {
   BookOpen, Users, AlertTriangle, BarChart2, QrCode,
   TrendingUp, Settings, LogOut, LayoutDashboard,
   FileText, GraduationCap, ChevronDown, RefreshCw,
-  Download, Eye, PanelLeftClose, PanelLeftOpen, Clock,
+  Download, Upload, FileSpreadsheet, Eye, PanelLeftClose, PanelLeftOpen, Clock,
   XCircle, Loader, Layers, Check, ChevronRight,
   Smartphone, AlertOctagon, Shield, Wifi, X, Info
 , Maximize2} from "lucide-react";
@@ -1188,6 +1188,59 @@ export default function LecturerDashboard() {
   }, [syncActiveSessions]);
 
   // View full list of students for a session
+  
+  // ── HANDLE CSV BULK STUDENT UPLOAD (Index Number & Gmail) ──
+  const handleCSVUpload = async (e) => {
+    e.preventDefault();
+    if (!uploadFile) {
+      alert("Please select a CSV file to upload.");
+      return;
+    }
+
+    setUploading(true);
+    setUploadFeedback(null);
+
+    const formData = new FormData();
+    formData.append("file", uploadFile);
+
+    try {
+      const res = await request("/api/auth/students/import-csv/", {
+        method: "POST",
+        body: formData,
+        // Let browser set multipart boundary
+        headers: {}
+      });
+
+      const json = await res.json();
+      if (json.success) {
+        setUploadFeedback({
+          type: "success",
+          msg: json.message || "Students successfully imported!"
+        });
+        if (selectedLevel) {
+          await selectLevel(selectedLevel);
+        }
+        setTimeout(() => {
+          setShowUploadModal(false);
+          setUploadFile(null);
+          setUploadFeedback(null);
+        }, 2200);
+      } else {
+        setUploadFeedback({
+          type: "error",
+          msg: json.message || "Failed to process CSV."
+        });
+      }
+    } catch (err) {
+      setUploadFeedback({
+        type: "error",
+        msg: "Connection error: " + err.message
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleViewSessionList = async (sess) => {
     const sId = sess.id || sess.session_code;
     setViewListSession(sess);

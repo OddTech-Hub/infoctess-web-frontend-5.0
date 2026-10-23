@@ -1,33 +1,14 @@
-﻿import { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
-  LogIn, Eye, EyeOff, GraduationCap,
-  ArrowLeft, AlertCircle, CheckCircle2, Loader2, QrCode, Smartphone
+  GraduationCap, ArrowLeft, QrCode, Smartphone,
+  CheckCircle2, AlertCircle, Eye, EyeOff, Loader2, LogIn, Lock, KeyRound, ShieldCheck
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { API_BASE_URL } from '../api/config';
-
-const infotessLogo = "/infotess logo.jpg";
-const STUDENT_LOGIN_URL = `${API_BASE_URL}/api/auth/rep/login/`;
-
-function saveWebUser(user, token) {
-  sessionStorage.setItem('web_user', JSON.stringify(user));
-  sessionStorage.setItem('role', user.role || 'student');
-  if (token) {
-    const accessToken = typeof token === 'string' ? token : (token.access || token.token || '');
-    const refreshToken = typeof token === 'string' ? '' : (token.refresh || '');
-    sessionStorage.setItem('access_token', accessToken);
-    sessionStorage.setItem('refresh_token', refreshToken);
-  }
-}
+import { STUDENT_LOGIN_URL, API_BASE_URL, saveWebUser } from '../api/config';
+import { getDeviceInfo } from '../utils/deviceUtils';
 
 export default function Login() {
   const navigate = useNavigate();
-
-  const [isSlid, setIsSlid] = useState(false);
-  useEffect(() => {
-    const t = setTimeout(() => setIsSlid(true), 60);
-    return () => clearTimeout(t);
-  }, []);
   const [indexNum, setIndexNum] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
@@ -35,37 +16,62 @@ export default function Login() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // First-Time Login Password Change State
+  const [showChangePassModal, setShowChangePassModal] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [tempUser, setTempUser] = useState(null);
+  const [tempToken, setTempToken] = useState(null);
+  const [changePassLoading, setChangePassLoading] = useState(false);
+  const [changePassError, setChangePassError] = useState('');
+
   async function handleStudentSubmit(e) {
     e.preventDefault();
     setError('');
     setSuccess('');
 
-    if (!indexNum.trim()) { setError('Index number or student email is required.'); return; }
+    const cleanInput = indexNum.trim();
+    if (!cleanInput) { setError('Index number or Gmail address is required.'); return; }
     if (!password) { setError('Password is required.'); return; }
 
     setLoading(true);
 
     try {
+      const { deviceId, deviceName } = getDeviceInfo();
+
       const res = await fetch(STUDENT_LOGIN_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          index_number: indexNum.trim(),
+          email: cleanInput,
+          index_number: cleanInput,
           password: password,
+          device_id: deviceId,
+          device_name: deviceName
         }),
       });
 
       const data = await res.json();
 
       if (!res.ok || data.success === false) {
-        throw new Error(data.message || 'Invalid index number or password.');
+        throw new Error(data.message || 'Invalid index number, Gmail, or password.');
       }
 
       const userData = data.data?.user || data.user || {
-        index_number: indexNum.trim(),
+        index_number: cleanInput,
         role: 'student',
       };
       const token = data.data?.token || data.token || data.access_token || null;
+
+      // Check if student must change password on first login
+      if (userData.must_change_password) {
+        setTempUser(userData);
+        setTempToken(token);
+        setShowChangePassModal(true);
+        setLoading(false);
+        return;
+      }
 
       saveWebUser(userData, token);
       setSuccess('Login successful! Redirecting to Student Dashboard...');
@@ -75,6 +81,59 @@ export default function Login() {
       setError(err.message || 'Invalid credentials. Please verify your details.');
     } finally {
       setLoading(false);
+    }
+  }
+
+  // Handle first-time password change submit
+  async function handleChangePasswordSubmit(e) {
+    e.preventDefault();
+    setChangePassError('');
+
+    if (!newPassword || newPassword.length < 6) {
+      setChangePassError('Password must be at least 6 characters long.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setChangePassError('Passwords do not match. Please verify.');
+      return;
+    }
+
+    setChangePassLoading(true);
+
+    try {
+      const accessToken = typeof tempToken === 'object' && tempToken ? tempToken.access : tempToken;
+      const res = await fetch(`${API_BASE_URL}/api/auth/change-password/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
+        },
+        body: JSON.stringify({
+          new_password: newPassword,
+          confirm_password: confirmPassword
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok || data.success === false) {
+        throw new Error(data.message || 'Failed to update password.');
+      }
+
+      // Update local student user
+      const updatedUser = {
+        ...tempUser,
+        must_change_password: false
+      };
+      saveWebUser(updatedUser, tempToken);
+
+      setShowChangePassModal(false);
+      setSuccess('Password set successfully! Taking you to your dashboard...');
+      setTimeout(() => navigate('/student'), 1000);
+
+    } catch (err) {
+      setChangePassError(err.message || 'Could not update password. Please try again.');
+    } finally {
+      setChangePassLoading(false);
     }
   }
 
@@ -89,16 +148,15 @@ export default function Login() {
       </button>
 
       <div style={S.container}>
-        {/* Left Form: Student Login */}
-        <div style={{ ...S.formPane, transform: 'none' }}>
+        <div style={S.formPane}>
           <form style={S.form} onSubmit={handleStudentSubmit}>
             <div style={S.logo}>
-              <img src={infotessLogo} alt="INFOTESS Logo" style={S.logoImg} />
+              <img src="/infotess.png" alt="INFOCTESS" style={S.logoImg} onError={(e) => { e.target.style.display = 'none'; }} />
             </div>
 
             <h1 style={S.heading}>Student Portal</h1>
             <div style={S.badge}>
-              <GraduationCap size={14} color="#2A6B9E" />
+              <GraduationCap size={14} />
               <span>Smart Attendance Sign In</span>
             </div>
 
@@ -116,31 +174,41 @@ export default function Login() {
               </div>
             )}
 
-            <input
-              type="text"
-              placeholder="Index Number (e.g. 5261000018)"
-              value={indexNum}
-              onChange={(e) => setIndexNum(e.target.value)}
-              style={S.input}
-              autoComplete="username"
-            />
-
-            <div style={S.passWrap}>
+            <div style={{ width: '100%', marginBottom: 12 }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 4 }}>
+                INDEX NUMBER OR STUDENT GMAIL
+              </label>
               <input
-                type={showPass ? 'text' : 'password'}
-                placeholder="Student Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                type="text"
+                placeholder="e.g. 5261000018 or student@gmail.com"
+                value={indexNum}
+                onChange={(e) => setIndexNum(e.target.value)}
                 style={S.input}
-                autoComplete="current-password"
+                autoComplete="username"
               />
-              <button
-                type="button"
-                style={S.eyeBtn}
-                onClick={() => setShowPass(!showPass)}
-              >
-                {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
+            </div>
+
+            <div style={{ width: '100%', marginBottom: 16 }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 4 }}>
+                PASSWORD
+              </label>
+              <div style={S.passWrap}>
+                <input
+                  type={showPass ? 'text' : 'password'}
+                  placeholder="Enter your student password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  style={S.input}
+                  autoComplete="current-password"
+                />
+                <button
+                  type="button"
+                  style={S.eyeBtn}
+                  onClick={() => setShowPass(!showPass)}
+                >
+                  {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
 
             <button
@@ -172,27 +240,109 @@ export default function Login() {
             </div>
           </form>
         </div>
-
-        {/* Right Info Overlay Slider */}
-        <div style={{ ...S.overlay, transform: isSlid ? 'translateX(-100%)' : 'translateX(0)' }}>
-          <div style={S.overlayInner}>
-            <div style={S.overlayIcon}>
-              <QrCode size={38} color="white" />
-            </div>
-            <h2 style={S.overlayHeading}>Fast Attendance Marking</h2>
-            <p style={S.overlayText}>
-              Scan the live projector QR code in class or enter the session code to verify your attendance instantly.
-            </p>
-            <div style={S.pillsContainer}>
-              <span style={S.pill}><Smartphone size={12} /> Mobile Friendly</span>
-              <span style={S.pill}><CheckCircle2 size={12} /> Instant Check-in</span>
-              <span style={S.pill}><GraduationCap size={12} /> Standing Analytics</span>
-            </div>
-          </div>
-        </div>
       </div>
 
-      
+      {/* ── FIRST-TIME LOGIN FORCE PASSWORD CHANGE MODAL ── */}
+      {showChangePassModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.8)', backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, padding: 16
+        }}>
+          <div style={{
+            background: 'white', borderRadius: 28, padding: '32px 28px', width: '100%', maxWidth: 440,
+            boxShadow: '0 25px 60px -15px rgba(0,0,0,0.4)', textAlign: 'center'
+          }}>
+            <div style={{
+              width: 56, height: 56, borderRadius: 16, background: 'linear-gradient(135deg, #1E5A87, #2A6B9E)',
+              color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px',
+              boxShadow: '0 8px 20px rgba(30,90,135,0.25)'
+            }}>
+              <KeyRound size={28} />
+            </div>
+
+            <h2 style={{ fontSize: 20, fontWeight: 800, color: '#0f172a', margin: '0 0 6px' }}>
+              First-Time Sign In Setup
+            </h2>
+            <p style={{ fontSize: 13, color: '#64748b', margin: '0 0 20px', lineHeight: 1.5 }}>
+              Welcome to INFOCTESS! Please set your personal secret password. You will use this password for all future logins.
+            </p>
+
+            {changePassError && (
+              <div style={{
+                background: '#fee2e2', border: '1px solid #fca5a5', color: '#991b1b',
+                padding: '10px 14px', borderRadius: 12, fontSize: 12, fontWeight: 600,
+                marginBottom: 16, display: 'flex', alignItems: 'center', gap: 6, textAlign: 'left'
+              }}>
+                <AlertCircle size={15} style={{ flexShrink: 0 }} />
+                <span>{changePassError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleChangePasswordSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12, textAlign: 'left' }}>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 4 }}>
+                  CREATE NEW PASSWORD (MIN 6 CHARACTERS)
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={showNewPass ? 'text' : 'password'}
+                    placeholder="Enter new password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    style={{ ...S.input, marginBottom: 0 }}
+                    required
+                  />
+                  <button
+                    type="button"
+                    style={S.eyeBtn}
+                    onClick={() => setShowNewPass(!showNewPass)}
+                  >
+                    {showNewPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 4 }}>
+                  CONFIRM NEW PASSWORD
+                </label>
+                <input
+                  type={showNewPass ? 'text' : 'password'}
+                  placeholder="Re-enter new password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  style={{ ...S.input, marginBottom: 0 }}
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={changePassLoading}
+                style={{
+                  width: '100%', padding: '14px', marginTop: 10,
+                  background: 'linear-gradient(135deg, #1E5A87, #0A3A4F)',
+                  color: 'white', border: 'none', borderRadius: 12, fontWeight: 800,
+                  fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', gap: 8, boxShadow: '0 4px 14px rgba(30,90,135,0.3)',
+                  opacity: changePassLoading ? 0.75 : 1
+                }}
+              >
+                {changePassLoading ? (
+                  <>
+                    <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+                    Saving Password to Database...
+                  </>
+                ) : (
+                  <>
+                    <Lock size={16} /> Save Password & Continue
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -202,30 +352,22 @@ const BUTTON_GRAD = "linear-gradient(135deg, #1E5A87 0%, #0a3a4fff 100%)";
 const PRIMARY = '#2A6B9E';
 
 const S = {
-  page: { minHeight: '100vh', background: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, position: 'relative', overflow: 'hidden', fontFamily: "'DM Sans','Segoe UI',sans-serif" },
+  page: { minHeight: '100vh', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, position: 'relative', overflow: 'hidden', fontFamily: "'DM Sans','Segoe UI',sans-serif" },
   blob1: { position: 'absolute', top: '-10%', left: '-5%', width: 500, height: 500, borderRadius: '50%', background: 'rgba(42,107,158,0.05)', filter: 'blur(80px)', pointerEvents: 'none' },
   blob2: { position: 'absolute', bottom: '-10%', right: '-5%', width: 400, height: 400, borderRadius: '50%', background: 'rgba(14,75,99,0.05)', filter: 'blur(80px)', pointerEvents: 'none' },
   blob3: { position: 'absolute', top: '40%', left: '40%', width: 300, height: 300, borderRadius: '50%', background: 'rgba(42,107,158,0.03)', filter: 'blur(60px)', pointerEvents: 'none' },
-  backBtn: { position: 'absolute', top: 16, left: 16, display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(0,0,0,0.05)', backdropFilter: 'blur(12px)', border: '1px solid rgba(0,0,0,0.1)', padding: '10px 20px', borderRadius: 12, color: '#333', cursor: 'pointer', fontSize: 14, fontWeight: 500, zIndex: 300 },
-  container: { position: 'relative', width: '100%', maxWidth: 440, minHeight: 480, background: '#ffffff', borderRadius: 36, boxShadow: '0 25px 60px rgba(0,0,0,0.12), 0 4px 16px rgba(0,0,0,0.06)', overflow: 'hidden', display: 'flex' },
-  formPane: { flex: 1, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  form: { width: '100%', maxWidth: 380, padding: '0 24px', display: 'flex', flexDirection: 'column', alignItems: 'center' },
+  backBtn: { position: 'absolute', top: 16, left: 16, display: 'flex', alignItems: 'center', gap: 8, background: '#ffffff', border: '1px solid #e2e8f0', padding: '10px 18px', borderRadius: 12, color: '#334155', cursor: 'pointer', fontSize: 13, fontWeight: 600, zIndex: 300, boxShadow: '0 2px 6px rgba(0,0,0,0.05)' },
+  container: { position: 'relative', width: '100%', maxWidth: 440, background: '#ffffff', borderRadius: 32, boxShadow: '0 25px 60px rgba(0,0,0,0.1), 0 4px 16px rgba(0,0,0,0.04)', overflow: 'hidden', display: 'flex', border: '1px solid #e2e8f0' },
+  formPane: { flex: 1, padding: '40px 32px', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  form: { width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' },
   logo: { width: 56, height: 56, borderRadius: 16, background: OVERLAY_GRAD, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16, boxShadow: '0 8px 20px rgba(42,107,158,0.2)', overflow: 'hidden' },
   logoImg: { width: '100%', height: '100%', objectFit: 'contain', borderRadius: 12 },
-  heading: { fontSize: 26, fontWeight: 700, color: '#111827', margin: '0 0 6px' },
-  badge: { display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(42,107,158,0.08)', border: '1px solid rgba(42,107,158,0.2)', padding: '6px 14px', borderRadius: 40, fontSize: 12, fontWeight: 600, color: PRIMARY, marginBottom: 16 },
-  input: { width: '100%', padding: '13px 16px', background: '#f9fafb', border: '1.5px solid #e5e7eb', borderRadius: 12, fontSize: 14, color: '#111827', marginBottom: 12, transition: 'all 0.2s', boxSizing: 'border-box' },
+  heading: { fontSize: 24, fontWeight: 800, color: '#0f172a', margin: '0 0 6px' },
+  badge: { display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(42,107,158,0.08)', border: '1px solid rgba(42,107,158,0.2)', padding: '6px 14px', borderRadius: 40, fontSize: 12, fontWeight: 700, color: PRIMARY, marginBottom: 20 },
+  input: { width: '100%', padding: '13px 16px', background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: 12, fontSize: 14, color: '#0f172a', transition: 'all 0.2s', boxSizing: 'border-box', outline: 'none' },
   passWrap: { position: 'relative', width: '100%' },
-  eyeBtn: { position: 'absolute', right: 12, top: '45%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 6 },
-  submitBtn: { width: '100%', padding: '13px 0', background: BUTTON_GRAD, color: 'white', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer', letterSpacing: 0.3, boxShadow: '0 6px 18px rgba(30,90,135,0.4)', marginTop: 4 },
+  eyeBtn: { position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 6 },
+  submitBtn: { width: '100%', padding: '14px 0', background: BUTTON_GRAD, color: 'white', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer', letterSpacing: 0.3, boxShadow: '0 6px 18px rgba(30,90,135,0.3)', marginTop: 8 },
   alertError: { width: '100%', padding: '10px 14px', borderRadius: 10, background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, boxSizing: 'border-box' },
   alertSuccess: { width: '100%', padding: '10px 14px', borderRadius: 10, background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#15803d', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, boxSizing: 'border-box' },
-  overlay: { display: 'none', flex: 1, background: OVERLAY_GRAD, alignItems: 'center', justifyContent: 'center', borderRadius: '36px 0 0 36px', padding: 40 },
-  overlayInner: { display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', maxWidth: 360 },
-  overlayIcon: { width: 72, height: 72, background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
-  overlayHeading: { fontSize: 26, fontWeight: 700, color: 'white', margin: '0 0 10px' },
-  overlayText: { fontSize: 13, color: 'rgba(255,255,255,0.85)', lineHeight: 1.6, margin: '0 0 20px' },
-  pillsContainer: { display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' },
-  pill: { display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.15)', color: 'white', padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 500, backdropFilter: 'blur(6px)' },
 };
-

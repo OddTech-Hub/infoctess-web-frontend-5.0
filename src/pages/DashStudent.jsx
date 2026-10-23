@@ -1,3 +1,4 @@
+import { getDeviceInfo } from "../utils/deviceUtils";
 import React, { useState, useEffect, useRef } from 'react';
 import {
   GraduationCap, QrCode, Camera, CheckCircle2, AlertTriangle,
@@ -241,7 +242,7 @@ export default function DashStudent() {
 
     try {
       const indexNum = student?.index_number || student?.username;
-      const deviceId = sessionStorage.getItem('device_id') || `dev-web-${student?.id || '001'}`;
+      const { deviceId, deviceName } = getDeviceInfo();
 
       const res = await requestApi('/api/checkin/', {
         method: 'POST',
@@ -250,7 +251,7 @@ export default function DashStudent() {
           index_number: indexNum,
           method: scanMethod === 'camera' ? 'qr_code' : 'session_code',
           device_id: deviceId,
-          device_name: navigator.userAgent.includes('Mobile') ? 'Mobile Phone' : 'Web Device',
+          device_name: deviceName || (navigator.userAgent.includes('Mobile') ? 'Mobile Phone' : 'Web Device'),
           lat: location?.lat || 5.3523,
           lng: location?.lng || -0.6310
         })
@@ -693,7 +694,7 @@ export default function DashStudent() {
                 <div>
                   <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>REGISTERED DEVICE ID</div>
                   <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', fontFamily: 'monospace', marginTop: 2 }}>
-                    {sessionStorage.getItem('device_id') || `dev-web-${student?.id || '001'}`}
+                    {getDeviceInfo().deviceName} · {getDeviceInfo().deviceId}
                   </div>
                 </div>
               </div>
