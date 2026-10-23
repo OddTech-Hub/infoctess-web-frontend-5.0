@@ -743,10 +743,10 @@ export default function CourseRepDashboard() {
               <div style={{ fontSize: 16, fontWeight: 800, color: "#1E5A87", marginBottom: 6 }}>{activeSession.course} — {activeSession.courseName}</div>
               <div style={{ fontSize: 13, color: "#64748b", marginBottom: 20 }}>Base Session ID: <strong>{activeSession.id}</strong></div>
               <div style={{ padding: 20, background: "#f8fafc", borderRadius: 20, border: "2px solid #e2e8f0", marginBottom: 16 }}>
-                <QRVisual code={activeSession.id + "-" + (rotatingToken || "0000")} size={280} />
+                <QRVisual code={rotatingToken ? `ATT-${rotatingToken}` : activeSession.id} size={280} />
               </div>
-              <div style={{ fontSize: 36, fontWeight: 900, letterSpacing: 6, color: "#1E5A87", fontFamily: "monospace", marginBottom: 8 }}>
-                {rotatingToken || "------"}
+              <div style={{ fontSize: 36, fontWeight: 900, letterSpacing: 4, color: "#1E5A87", fontFamily: "monospace", marginBottom: 8 }}>
+                {rotatingToken ? `ATT-${rotatingToken}` : (activeSession.id || "ATT-0000")}
               </div>
               <div style={{ fontSize: 12, color: "#64748b" }}>Refreshes in {rotatingSecs} seconds</div>
             </div>
@@ -934,13 +934,12 @@ export default function CourseRepDashboard() {
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 6 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: 1 }}>Session: {activeSession.id}</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
-                  <div style={{ fontSize: 32, fontWeight: 900, letterSpacing: 4, color: "#1E5A87", fontFamily: "monospace" }}>
-                    {rotatingToken || "...."}
+                  <div style={{ fontSize: 32, fontWeight: 900, letterSpacing: 3, color: "#1E5A87", fontFamily: "monospace" }}>
+                    {rotatingToken ? `ATT-${rotatingToken}` : (activeSession.id || "ATT-0000")}
                   </div>
                   <span style={{ fontSize: 11, background: "#e0f2fe", color: "#0369a1", padding: "3px 8px", borderRadius: 12, fontWeight: 700 }}>
-                    90s Dynamic Code
+                    Changes every 90s
                   </span>
                 </div>
                 {/* 10s Progress countdown bar */}
@@ -959,7 +958,7 @@ export default function CourseRepDashboard() {
               <div style={{ fontSize: 13, color: "#64748b", marginBottom: 16, fontWeight: 600, textAlign: "center" }}>{activeSession.courseName}</div>
 
               <div style={{ display: "flex", justifyContent: "center", marginBottom: 20, padding: 12, background: "#f8fafc", borderRadius: 16, border: "1px solid #e2e8f0" }}>
-                <QRVisual code={activeSession.id + "-" + (rotatingToken || "0000")} size={200} />
+                <QRVisual code={rotatingToken ? `ATT-${rotatingToken}` : activeSession.id} size={200} />
               </div>
 
               {/* PROJECTOR MODE BUTTON */}

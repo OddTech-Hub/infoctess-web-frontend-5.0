@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Maximize2, Minimize2, Clock, ShieldCheck, Sparkles, RefreshCw } from 'lucide-react';
+import { getRotatingSessionState } from '../utils/sessionCode';
 
 function QRVisual({ code, size = 320 }) {
   const [imgError, setImgError] = useState(false);
@@ -89,7 +90,8 @@ export default function ProjectorModal({
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
-  const fullDynamicCode = sessionId && rotatingToken ? `${sessionId}-${rotatingToken}` : (sessionId || 'ATT-0000');
+  // ONLY ONE CODE: strictly ATT-xxxx format (changes every 90 seconds)
+  const displayCode = rotatingToken ? `ATT-${rotatingToken}` : (sessionId || 'ATT-0000');
   const progressPct = Math.max(0, Math.min(100, (rotatingSecs / totalWindow) * 100));
   const isExpiringSoon = rotatingSecs <= 10;
 
@@ -132,9 +134,6 @@ export default function ProjectorModal({
             <div style={{ fontSize: 18, fontWeight: 800, color: 'white', letterSpacing: 0.5 }}>
               {courseCode || 'COURSE'} — {courseName || 'Live Attendance Session'}
             </div>
-            <div style={{ fontSize: 12, color: '#94a3b8' }}>
-              Base Session ID: <strong style={{ color: '#38bdf8' }}>{sessionId}</strong>
-            </div>
           </div>
         </div>
 
@@ -154,7 +153,7 @@ export default function ProjectorModal({
               fontWeight: 700
             }}>
               <Clock size={16} />
-              <span>Session Ends: <strong>{fmtSessionTimer(sessionCountdown)}</strong></span>
+              <span>Session Closes In: <strong>{fmtSessionTimer(sessionCountdown)}</strong></span>
             </div>
           )}
 
@@ -210,7 +209,7 @@ export default function ProjectorModal({
         padding: '24px 20px',
         textAlign: 'center'
       }}>
-        {/* Dynamic rotating code callout */}
+        {/* SINGLE UNIFIED ATT-XXXX CODE CALLOUT */}
         <div style={{ marginBottom: 20 }}>
           <div style={{
             fontSize: 13,
@@ -218,40 +217,39 @@ export default function ProjectorModal({
             letterSpacing: 3,
             color: '#94a3b8',
             fontWeight: 700,
-            marginBottom: 6
+            marginBottom: 8
           }}>
-            Scan QR or Enter 6-Digit Passcode on Mobile
+            Scan QR or Enter Session Code on Mobile
           </div>
           <div style={{
             display: 'inline-flex',
             alignItems: 'center',
             gap: 12,
-            background: 'rgba(15, 23, 42, 0.8)',
-            border: '2px solid rgba(56, 189, 248, 0.4)',
-            padding: '10px 28px',
-            borderRadius: 20,
-            boxShadow: '0 10px 30px rgba(0,0,0,0.5)'
+            background: 'rgba(15, 23, 42, 0.85)',
+            border: '2px solid rgba(56, 189, 248, 0.5)',
+            padding: '12px 36px',
+            borderRadius: 24,
+            boxShadow: '0 12px 35px rgba(0,0,0,0.6)'
           }}>
-            <span style={{ fontSize: 13, color: '#94a3b8', fontWeight: 600 }}>Passcode:</span>
             <span style={{
-              fontSize: 'clamp(32px, 5vw, 52px)',
+              fontSize: 'clamp(36px, 6vw, 60px)',
               fontWeight: 900,
-              letterSpacing: '8px',
+              letterSpacing: '5px',
               fontFamily: 'monospace',
               color: '#38bdf8',
-              textShadow: '0 0 20px rgba(56, 189, 248, 0.5)'
+              textShadow: '0 0 25px rgba(56, 189, 248, 0.6)'
             }}>
-              {rotatingToken || '------'}
+              {displayCode}
             </span>
             <span style={{
               fontSize: 11,
-              background: 'rgba(37, 99, 235, 0.3)',
+              background: 'rgba(37, 99, 235, 0.35)',
               color: '#93c5fd',
-              padding: '4px 10px',
-              borderRadius: 12,
-              fontWeight: 700
+              padding: '5px 12px',
+              borderRadius: 14,
+              fontWeight: 800
             }}>
-              90s Dynamic
+              Changes every 90s
             </span>
           </div>
         </div>
@@ -267,7 +265,7 @@ export default function ProjectorModal({
           position: 'relative'
         }}>
           <QRVisual
-            code={fullDynamicCode}
+            code={displayCode}
             size={310}
           />
         </div>
@@ -276,7 +274,7 @@ export default function ProjectorModal({
         <div style={{ width: 'min(460px, 85vw)', marginTop: 24 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
             <span style={{ fontSize: 13, color: '#94a3b8', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <RefreshCw size={14} style={{ animation: 'spin 3s linear infinite' }} /> Rotating Security Cycle
+              <RefreshCw size={14} style={{ animation: 'spin 3s linear infinite' }} /> Rotating Session Code
             </span>
             <span style={{
               fontSize: 14,
@@ -284,7 +282,7 @@ export default function ProjectorModal({
               color: isExpiringSoon ? '#ef4444' : '#38bdf8',
               fontFamily: 'monospace'
             }}>
-              Refreshes in {rotatingSecs}s
+              Code changes in {rotatingSecs}s
             </span>
           </div>
 

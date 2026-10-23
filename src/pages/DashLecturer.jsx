@@ -1668,16 +1668,16 @@ export default function LecturerDashboard() {
                         {qrCourse} — {sessionCourseName || "Course Attendance"}
                       </div>
                       <div style={{ fontSize: 12, color: "#64748b", marginBottom: 16 }}>
-                        Base Session ID: <strong style={{ color: "#1E5A87" }}>{sessionCode}</strong> · Radius: <strong>{allowedRadius}m</strong>
+                        Active Session Code: <strong style={{ color: "#1E5A87" }}>{rotatingToken ? `ATT-${rotatingToken}` : sessionCode}</strong> · Radius: <strong>{allowedRadius}m</strong>
                       </div>
 
                       {/* 90-SECOND ROTATING PASSCODE CALLOUT */}
                       <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 16, padding: "12px 24px", width: "100%", boxSizing: "border-box", marginBottom: 16 }}>
                         <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5 }}>
-                          Current 90s Dynamic Passcode
+                          Current Session Code (Format: ATT-XXXX)
                         </div>
-                        <div style={{ fontSize: 36, fontWeight: 900, letterSpacing: 6, color: "#1E5A87", fontFamily: "monospace", margin: "4px 0" }}>
-                          {rotatingToken || "------"}
+                        <div style={{ fontSize: 36, fontWeight: 900, letterSpacing: 4, color: "#1E5A87", fontFamily: "monospace", margin: "4px 0" }}>
+                          {rotatingToken ? `ATT-${rotatingToken}` : (sessionCode || "ATT-0000")}
                         </div>
                         {/* 90s progress bar */}
                         <div style={{ width: "100%", height: 6, background: "#e2e8f0", borderRadius: 4, overflow: "hidden", marginTop: 6 }}>
@@ -1695,7 +1695,7 @@ export default function LecturerDashboard() {
 
                       {/* QR Visual */}
                       <div style={{ padding: 12, background: "#f8fafc", borderRadius: 16, border: "1px solid #e2e8f0", marginBottom: 16 }}>
-                        <QRPlaceholder code={sessionCode + "-" + (rotatingToken || "0000")} size={190} />
+                        <QRPlaceholder code={rotatingToken ? `ATT-${rotatingToken}` : (sessionCode || "ATT-0000")} size={190} />
                       </div>
 
                       {/* 📽️ PROJECT TO SCREEN BUTTON */}
@@ -1959,13 +1959,12 @@ export default function LecturerDashboard() {
                         <Loader size={16} style={{ animation: "spin 2s linear infinite" }} /> Session Active
                       </div>
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 12 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Base: {sessionCode}</div>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
-                          <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: 3, color: "#1E5A87", fontFamily: "monospace" }}>
-                            {rotatingToken || "...."}
+                          <div style={{ fontSize: 32, fontWeight: 900, letterSpacing: 3, color: "#1E5A87", fontFamily: "monospace" }}>
+                            {rotatingToken ? `ATT-${rotatingToken}` : (sessionCode || "ATT-0000")}
                           </div>
-                          <span style={{ fontSize: 10, background: "#e0f2fe", color: "#0369a1", padding: "2px 8px", borderRadius: 12, fontWeight: 700 }}>
-                            90s Code
+                          <span style={{ fontSize: 10, background: "#e0f2fe", color: "#0369a1", padding: "3px 8px", borderRadius: 12, fontWeight: 700 }}>
+                            Changes every 90s
                           </span>
                         </div>
                         {/* 10s Progress countdown bar */}
@@ -1982,7 +1981,7 @@ export default function LecturerDashboard() {
                         </div>
                       </div>
                       <div style={{ padding: 12, background: "#f8fafc", borderRadius: 12, border: "1px solid #e2e8f0", marginBottom: 16 }}>
-                        <QRPlaceholder code={sessionCode + "-" + (rotatingToken || "0000")} />
+                        <QRPlaceholder code={rotatingToken ? `ATT-${rotatingToken}` : (sessionCode || "ATT-0000")} />
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, background: countdown < 60 ? "#fef2f2" : "#eff6ff", color: countdown < 60 ? "#ef4444" : "#3b82f6", padding: "8px 20px", borderRadius: 40, fontWeight: 700, fontSize: 16 }}>
                         <Clock size={16} /> {fmtTime(countdown)}

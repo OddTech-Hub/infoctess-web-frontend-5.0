@@ -332,7 +332,7 @@ export default function DashStudent() {
       setScanning(false);
       setCheckinStatus({
         type: 'warning',
-        msg: 'Camera access denied or unavailable. Enter the 6-digit code directly below.'
+        msg: 'Camera access denied or unavailable. Enter the ATT-XXXX code directly below.'
       });
       setScanMethod('code');
     }
@@ -852,7 +852,7 @@ export default function DashStudent() {
                   boxShadow: scanMethod === 'code' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none'
                 }}
               >
-                <Smartphone size={15} /> Enter 6-Digit Code
+                <Smartphone size={15} /> Enter ATT-XXXX Code
               </button>
             </div>
 
@@ -889,11 +889,11 @@ export default function DashStudent() {
             {scanMethod === 'code' && (
               <div style={{ marginBottom: 16 }}>
                 <label style={{ fontSize: 12, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 6 }}>
-                  ENTER 6-DIGIT DYNAMIC PASSCODE (OR ATT-XXXX CODE)
+                  ENTER ATT-XXXX SESSION CODE (OR 4 DIGITS)
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. 748291 or ATT-4869"
+                  placeholder="e.g. ATT-4869 or 4869"
                   value={sessionCodeInput}
                   onChange={e => setSessionCodeInput(e.target.value.toUpperCase())}
                   style={{
