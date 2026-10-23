@@ -1,10 +1,11 @@
+import ProjectorModal from "../components/ProjectorModal";
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
   QrCode, Users, Trash2, Plus, Eye, Clock, CheckCircle,
   LayoutDashboard, LogOut, PanelLeftClose, PanelLeftOpen,
   GraduationCap, ChevronDown, X, Smartphone, Hash,
   UserCheck, AlertCircle, Wifi, Shield, Download, FileText
-} from "lucide-react";
+, Maximize2} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { request } from "../api/client";
 import { getRotatingSessionState } from "../utils/sessionCode";
@@ -143,6 +144,18 @@ function QRVisual({ code, size = 200 }) {
           opacity: imgLoaded ? 1 : 0,
           transition: "opacity 0.2s ease"
         }}
+      />
+      {/* AUDITORIUM PROJECTOR MODAL */}
+      <ProjectorModal
+        isOpen={showProjector}
+        onClose={() => setShowProjector(false)}
+        sessionId={activeSession?.id}
+        courseCode={activeSession?.course}
+        courseName={activeSession?.courseName}
+        rotatingToken={rotatingToken}
+        rotatingSecs={rotatingSecs}
+        totalWindow={90}
+        sessionCountdown={sessionCountdown}
       />
     </div>
   );
@@ -306,6 +319,8 @@ export default function CourseRepDashboard() {
   const [rotatingSecs, setRotatingSecs] = useState(30);
   const [allowedRadius, setAllowedRadius] = useState(50);
   const [showConfigModal, setShowConfigModal] = useState(false);
+  const [showProjector, setShowProjector] = useState(false);
+  const [sessionCountdown, setSessionCountdown] = useState(0);
 
   // Delete confirm
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -373,6 +388,7 @@ export default function CourseRepDashboard() {
             students: studentsList,
             countdown: (active.timeWindow || 10) * 60
           });
+          setSessionCountdown((active.timeWindow || 10) * 60);
           setShowModal(true);
         } else {
           setActiveSession(null);
@@ -459,7 +475,16 @@ export default function CourseRepDashboard() {
     }
   }, [tab, fetchCheckedInStudents]);
 
-  // ── 30-SECOND ROTATING SESSION CODE TIMER ──
+  // ── SESSION DURATION COUNTDOWN TIMER ──
+  useEffect(() => {
+    if (!activeSession || sessionCountdown <= 0) return;
+    const durTimer = setInterval(() => {
+      setSessionCountdown(c => (c > 1 ? c - 1 : 0));
+    }, 1000);
+    return () => clearInterval(durTimer);
+  }, [activeSession, sessionCountdown]);
+
+  // ── 90-SECOND ROTATING SESSION CODE TIMER ──
   useEffect(() => {
     if (!activeSession) return;
     const updateRotation = () => {
@@ -521,6 +546,7 @@ export default function CourseRepDashboard() {
           students: [],
           countdown: parseInt(timeWindow) * 60
         });
+        setSessionCountdown(parseInt(timeWindow) * 60);
         setShowModal(true);
         fetchSessions();
       } else {
@@ -567,6 +593,7 @@ export default function CourseRepDashboard() {
         <nav style={{ padding: "16px 8px", flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
           {[
             { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+            { id: "projection", label: "Session Projector", icon: Maximize2 },
             { id: "sessions", label: "Sessions", icon: QrCode },
             { id: "students", label: "Students Roster", icon: Users },
           ].map(item => {
@@ -690,7 +717,50 @@ export default function CourseRepDashboard() {
           </div>
         )}
 
-        {tab === "students" && (
+        {tab === "projection" && (
+        <div style={{ background: "white", borderRadius: 20, padding: 32, border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, borderBottom: "1px solid #f1f5f9", paddingBottom: 16 }}>
+            <div>
+              <h2 style={{ fontSize: 20, fontWeight: 800, color: "#0f172a", margin: 0 }}>Classroom Projector Mode</h2>
+              <p style={{ fontSize: 13, color: "#64748b", margin: "4px 0 0" }}>Project high-contrast QR code and unguessable 90s passcode to students</p>
+            </div>
+            {activeSession && (
+              <button
+                onClick={() => setShowProjector(true)}
+                style={{
+                  padding: "10px 20px", borderRadius: 10, background: "linear-gradient(135deg, #1E5A87, #0A3A4F)",
+                  color: "white", border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer",
+                  display: "flex", alignItems: "center", gap: 8
+                }}
+              >
+                <Maximize2 size={16} /> Open Fullscreen Projector
+              </button>
+            )}
+          </div>
+
+          {activeSession ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "20px 0" }}>
+              <div style={{ fontSize: 16, fontWeight: 800, color: "#1E5A87", marginBottom: 6 }}>{activeSession.course} — {activeSession.courseName}</div>
+              <div style={{ fontSize: 13, color: "#64748b", marginBottom: 20 }}>Base Session ID: <strong>{activeSession.id}</strong></div>
+              <div style={{ padding: 20, background: "#f8fafc", borderRadius: 20, border: "2px solid #e2e8f0", marginBottom: 16 }}>
+                <QRVisual code={activeSession.id + "-" + (rotatingToken || "0000")} size={280} />
+              </div>
+              <div style={{ fontSize: 36, fontWeight: 900, letterSpacing: 6, color: "#1E5A87", fontFamily: "monospace", marginBottom: 8 }}>
+                {rotatingToken || "------"}
+              </div>
+              <div style={{ fontSize: 12, color: "#64748b" }}>Refreshes in {rotatingSecs} seconds</div>
+            </div>
+          ) : (
+            <div style={{ textAlign: "center", padding: "60px 20px", color: "#94a3b8" }}>
+              <QrCode size={48} style={{ margin: "0 auto 12px", color: "#cbd5e1" }} />
+              <div style={{ fontSize: 16, fontWeight: 700, color: "#475569" }}>No Active Session Running</div>
+              <div style={{ fontSize: 13, marginTop: 4 }}>Go to the Dashboard and click <strong>Session Settings</strong> to launch an attendance session.</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === "students" && (
           <div style={{ background: "white", borderRadius: 16, border: "1px solid #e2e8f0", padding: 24 }}>
             <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 16px", color: "#0f172a" }}>Student Attendance Roster</h3>
             {loadingStudents ? (
@@ -756,20 +826,20 @@ export default function CourseRepDashboard() {
             {/* Duration Selector (Up to 100 mins) */}
             <div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                <label style={{ fontSize: 12, fontWeight: 700, color: "#475569" }}>SESSION TIME DURATION (MAX 100 MINS)</label>
+                <label style={{ fontSize: 12, fontWeight: 700, color: "#475569" }}>SESSION TIME DURATION (MAX 60 MINS)</label>
                 <span style={{ fontSize: 13, fontWeight: 800, color: "#2563eb" }}>{timeWindow} minutes</span>
               </div>
               <input
                 type="range"
                 min="5"
-                max="100"
+                max="60"
                 step="5"
                 value={timeWindow}
                 onChange={e => setTimeWindow(e.target.value)}
                 style={{ width: "100%", cursor: "pointer", accentColor: "#2563eb" }}
               />
               <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
-                {[10, 20, 30, 45, 60, 90, 100].map(mins => (
+                {[10, 15, 20, 30, 45, 60].map(mins => (
                   <button
                     key={mins}
                     type="button"
@@ -870,13 +940,13 @@ export default function CourseRepDashboard() {
                     {rotatingToken || "...."}
                   </div>
                   <span style={{ fontSize: 11, background: "#e0f2fe", color: "#0369a1", padding: "3px 8px", borderRadius: 12, fontWeight: 700 }}>
-                    30s Dynamic Code
+                    90s Dynamic Code
                   </span>
                 </div>
                 {/* 10s Progress countdown bar */}
                 <div style={{ width: 180, height: 6, background: "#e2e8f0", borderRadius: 4, overflow: "hidden", marginTop: 6 }}>
                   <div style={{
-                    width: `${(rotatingSecs / 30) * 100}%`,
+                    width: `${(rotatingSecs / 90) * 100}%`,
                     height: "100%",
                     background: rotatingSecs <= 3 ? "#ef4444" : "#2A6B9E",
                     transition: "width 0.4s linear, background 0.3s ease"
@@ -891,6 +961,21 @@ export default function CourseRepDashboard() {
               <div style={{ display: "flex", justifyContent: "center", marginBottom: 20, padding: 12, background: "#f8fafc", borderRadius: 16, border: "1px solid #e2e8f0" }}>
                 <QRVisual code={activeSession.id + "-" + (rotatingToken || "0000")} size={200} />
               </div>
+
+              {/* PROJECTOR MODE BUTTON */}
+              <button
+                type="button"
+                onClick={() => setShowProjector(true)}
+                style={{
+                  width: "100%", padding: "12px 16px", borderRadius: 12,
+                  background: "linear-gradient(135deg, #0f172a, #1E5A87)",
+                  color: "white", border: "1px solid #38bdf8", fontWeight: 700, fontSize: 13,
+                  cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                  gap: 8, boxShadow: "0 4px 14px rgba(56,189,248,0.2)", marginBottom: 12
+                }}
+              >
+                <Maximize2 size={16} color="#38bdf8" /> 📽️ Project to Screen (Auditorium Mode)
+              </button>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%" }}>
                 <button onClick={() => downloadSessionPDF(activeSession)} style={{

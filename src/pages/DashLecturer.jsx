@@ -6,7 +6,7 @@ import {
   Download, Eye, PanelLeftClose, PanelLeftOpen, Clock,
   XCircle, Loader, Layers, Check, ChevronRight,
   Smartphone, AlertOctagon, Shield, Wifi, X, Info
-} from "lucide-react";
+, Maximize2} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { request } from "../api/client";
 import { getRotatingSessionState } from "../utils/sessionCode";
@@ -1157,6 +1157,38 @@ export default function LecturerDashboard() {
     return () => clearInterval(timerRef.current);
   }, [sessionActive]);
 
+  // ── 90-SECOND LECTURER ROTATING SESSION CODE TIMER ──
+  useEffect(() => {
+    if (!sessionActive || !sessionCode) return;
+    const updateRotation = () => {
+      const state = getRotatingSessionState(sessionCode);
+      setRotatingToken(state.token);
+      setRotatingSecs(state.secondsLeft);
+    };
+    updateRotation();
+    const rotInterval = setInterval(updateRotation, 500);
+    return () => clearInterval(rotInterval);
+  }, [sessionActive, sessionCode]);
+
+  // ── LIVE ROSTER POLL DURING ACTIVE SESSION ──
+  useEffect(() => {
+    if (!sessionActive) return;
+    const fetchLiveRoster = async () => {
+      try {
+        const res = await request("/api/reports/breakdown/");
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          setLiveStudents(json.data);
+        }
+      } catch (e) {
+        console.error("Live roster poll error:", e);
+      }
+    };
+    fetchLiveRoster();
+    const pollInterval = setInterval(fetchLiveRoster, 2000);
+    return () => clearInterval(pollInterval);
+  }, [sessionActive]);
+
   const fmtTime = s => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
   const pctBadge = (pct) => {
@@ -1167,6 +1199,7 @@ export default function LecturerDashboard() {
 
   const navLinks = [
     { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { key: "session", label: "Live Session", icon: QrCode },
     { key: "reports", label: "Reports", icon: FileText },
     { key: "students", label: "Students", icon: Users },
     { key: "groups", label: "Groups", icon: Layers },
@@ -1582,7 +1615,7 @@ export default function LecturerDashboard() {
                     <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6 }}>Time Window</label>
                     <div style={{ position: "relative" }}>
                       <select value={timeWindow} onChange={e => setTimeWindow(e.target.value)} disabled={sessionActive} style={{ width: "100%", appearance: "none", padding: "10px 36px 10px 12px", border: "1px solid #e2e8f0", borderRadius: 9, fontSize: 13, background: sessionActive ? "#f8fafc" : "white", color: "#1e293b", cursor: "pointer" }}>
-                        {["5", "10", "15", "20", "30", "45", "60", "75", "90", "100"].map(t => <option key={t} value={t}>{t} minutes</option>)}
+                        {["5", "10", "15", "20", "30", "45", "60"].map(t => <option key={t} value={t}>{t} minutes</option>)}
                       </select>
                       <ChevronDown size={14} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "#94a3b8" }} />
                     </div>
@@ -1633,13 +1666,13 @@ export default function LecturerDashboard() {
                             {rotatingToken || "...."}
                           </div>
                           <span style={{ fontSize: 10, background: "#e0f2fe", color: "#0369a1", padding: "2px 8px", borderRadius: 12, fontWeight: 700 }}>
-                            30s Code
+                            90s Code
                           </span>
                         </div>
                         {/* 10s Progress countdown bar */}
                         <div style={{ width: 160, height: 5, background: "#e2e8f0", borderRadius: 4, overflow: "hidden", marginTop: 6 }}>
                           <div style={{
-                            width: `${(rotatingSecs / 30) * 100}%`,
+                            width: `${(rotatingSecs / 90) * 100}%`,
                             height: "100%",
                             background: rotatingSecs <= 3 ? "#ef4444" : "#2A6B9E",
                             transition: "width 0.4s linear, background 0.3s ease"
@@ -1747,7 +1780,139 @@ export default function LecturerDashboard() {
         )}
 
         {/* ══ REPORTS PAGE (nav-driven, separate from dashboard) ══ */}
-        {level && navItem === "reports" && (
+        {level && navItem === "session" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+              {/* LIVE SESSION HEADER BANNER */}
+              <div style={{
+                background: sessionActive ? "linear-gradient(135deg, #064e3b 0%, #065f46 100%)" : "white",
+                color: sessionActive ? "white" : "#0f172a",
+                borderRadius: 18, padding: 24, border: "1px solid #e2e8f0",
+                display: "flex", justifyContent: "space-between", alignItems: "center",
+                boxShadow: sessionActive ? "0 10px 25px rgba(6,95,70,0.2)" : "0 1px 4px rgba(0,0,0,0.04)"
+              }}>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: "50%", background: sessionActive ? "#34d399" : "#94a3b8", boxShadow: sessionActive ? "0 0 10px #34d399" : "none" }} />
+                    <span style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1, color: sessionActive ? "#a7f3d0" : "#64748b" }}>
+                      {sessionActive ? "SESSION CURRENTLY LIVE & ACCEPTING CHECK-INS" : "NO ACTIVE SESSION RUNNING"}
+                    </span>
+                  </div>
+                  <h2 style={{ fontSize: 22, fontWeight: 800, margin: 0, color: sessionActive ? "white" : "#1e293b" }}>
+                    {sessionActive ? `${qrCourse || "Class Attendance"} · Session ${sessionCode}` : "Open an Attendance Session"}
+                  </h2>
+                  <div style={{ fontSize: 13, color: sessionActive ? "#d1fae5" : "#64748b", marginTop: 4 }}>
+                    {sessionActive
+                      ? `Allowed Radius: ${allowedRadius}m · Duration: ${timeWindow} mins · ${liveStudents.length} students checked in`
+                      : "Launch a real-time geofenced session with unguessable 90-second rotating passcodes."}
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: 10 }}>
+                  {sessionActive ? (
+                    <>
+                      <button
+                        onClick={() => setShowProjector(true)}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 8, padding: "10px 18px",
+                          borderRadius: 10, background: "#38bdf8", color: "#0f172a",
+                          border: "none", fontWeight: 800, fontSize: 13, cursor: "pointer"
+                        }}
+                      >
+                        <Maximize2 size={16} /> Project to Screen
+                      </button>
+                      <button
+                        onClick={closeSession}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 8, padding: "10px 18px",
+                          borderRadius: 10, background: "#ef4444", color: "white",
+                          border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer"
+                        }}
+                      >
+                        <XCircle size={16} /> Close Session
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={openSession}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 8, padding: "12px 24px",
+                        borderRadius: 12, background: "linear-gradient(135deg,#1d4ed8,#3b82f6)",
+                        color: "white", border: "none", fontWeight: 800, fontSize: 14, cursor: "pointer",
+                        boxShadow: "0 4px 14px rgba(37,99,235,0.3)"
+                      }}
+                    >
+                      <QrCode size={18} /> Launch Session Now
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* LIVE ATTENDANCE ROSTER STREAM */}
+              <div style={{ background: "white", borderRadius: 18, border: "1px solid #e2e8f0", padding: 24, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18, paddingBottom: 14, borderBottom: "1px solid #f1f5f9" }}>
+                  <div>
+                    <h3 style={{ fontSize: 16, fontWeight: 800, color: "#0f172a", margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+                      <Users size={18} color="#2563eb" /> Real-Time Verified Student Check-in Roster
+                    </h3>
+                    <p style={{ fontSize: 12, color: "#64748b", margin: "2px 0 0" }}>
+                      {sessionActive ? "Stream updates automatically as students scan QR or enter 6-digit code" : "Full verified roster at conclusion of session"}
+                    </p>
+                  </div>
+                  <span style={{ background: "#eff6ff", color: "#2563eb", fontWeight: 800, fontSize: 13, padding: "4px 14px", borderRadius: 20, border: "1px solid #bfdbfe" }}>
+                    {liveStudents.length} Students Present
+                  </span>
+                </div>
+
+                {liveStudents.length > 0 ? (
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ background: "#f8fafc" }}>
+                        {["Student Name", "Index Number", "Time Checked In", "Method", "Device & Proximity", "Status"].map(h => (
+                          <th key={h} style={{ textAlign: "left", padding: "10px 16px", color: "#64748b", fontWeight: 600, fontSize: 12, borderBottom: "1px solid #e2e8f0" }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {liveStudents.map((st, i) => (
+                        <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                          <td style={{ padding: "12px 16px", fontWeight: 700, color: "#1e293b" }}>{st.name}</td>
+                          <td style={{ padding: "12px 16px", color: "#3b82f6", fontWeight: 600, fontFamily: "monospace" }}>{st.index}</td>
+                          <td style={{ padding: "12px 16px", color: "#64748b" }}>{st.time || "Just now"}</td>
+                          <td style={{ padding: "12px 16px" }}>
+                            <span style={{ fontSize: 11, background: "#e0f2fe", color: "#0369a1", padding: "2px 8px", borderRadius: 12, fontWeight: 700 }}>
+                              {st.method || "Dynamic QR"}
+                            </span>
+                          </td>
+                          <td style={{ padding: "12px 16px", color: "#10b981", fontSize: 12, fontWeight: 600 }}>
+                            ✓ In-Radius Verified
+                          </td>
+                          <td style={{ padding: "12px 16px" }}>
+                            <span style={{ background: "#dcfce7", color: "#166534", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700 }}>
+                              Present
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div style={{ textAlign: "center", padding: "60px 20px", color: "#94a3b8" }}>
+                    <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#eff6ff", color: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
+                      <Smartphone size={24} />
+                    </div>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: "#334155" }}>
+                      {sessionActive ? "Waiting for students to check in..." : "No check-ins recorded yet"}
+                    </div>
+                    <div style={{ fontSize: 12, marginTop: 4 }}>
+                      {sessionActive ? "Project the QR code to allow students to mark present" : "Launch a session above to begin attendance tracking"}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {level && navItem === "reports" && (
           <main style={{ flex: 1, padding: "28px 32px", overflowY: "auto" }}>
             <div style={{ marginBottom: 24 }}>
               <h1 style={{ fontSize: 24, fontWeight: 700, color: "#0f172a", margin: 0 }}>Attendance Reports</h1>
