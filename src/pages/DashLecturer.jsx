@@ -1,3 +1,4 @@
+import ProjectorModal from "../components/ProjectorModal";
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
   BookOpen, Users, AlertTriangle, BarChart2, QrCode,
@@ -626,6 +627,7 @@ export default function LecturerDashboard() {
   const [rotatingToken, setRotatingToken] = useState('');
   const [rotatingSecs, setRotatingSecs] = useState(30);
   const [sessionActive, setSessionActive] = useState(false);
+  const [showProjector, setShowProjector] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const timerRef = useRef(null);
 
@@ -1277,13 +1279,24 @@ export default function LecturerDashboard() {
 
   // ── LIVE ROSTER POLL DURING ACTIVE SESSION ──
   useEffect(() => {
-    if (!sessionActive) return;
+    if (!sessionActive || !sessionCode) return;
     const fetchLiveRoster = async () => {
       try {
-        const res = await request("/api/reports/breakdown/");
+        const res = await request(`/api/sessions/${sessionCode}/`);
         const json = await res.json();
-        if (json.success && Array.isArray(json.data)) {
-          setLiveStudents(json.data);
+        if (json.success && json.data) {
+          const d = json.data;
+          if (Array.isArray(d.students)) {
+            setLiveStudents(d.students);
+          } else if (Array.isArray(d.records)) {
+            setLiveStudents(d.records.map(r => ({
+              name: r.student ? `${r.student.first_name} ${r.student.last_name}` : (r.name || "Student"),
+              index: r.student ? r.student.index_number : (r.index || ""),
+              time: r.checked_in_at ? new Date(r.checked_in_at).toLocaleTimeString() : (r.time || "Just now"),
+              method: r.method === "qr_code" ? "Dynamic QR" : "Session Code",
+              device_name: r.device_name || "Verified Device"
+            })));
+          }
         }
       } catch (e) {
         console.error("Live roster poll error:", e);
@@ -1292,7 +1305,7 @@ export default function LecturerDashboard() {
     fetchLiveRoster();
     const pollInterval = setInterval(fetchLiveRoster, 2000);
     return () => clearInterval(pollInterval);
-  }, [sessionActive]);
+  }, [sessionActive, sessionCode]);
 
   const fmtTime = s => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
@@ -1700,252 +1713,6 @@ export default function LecturerDashboard() {
 
             {/* ── DASHBOARD > QR TAB ── */}
             
-            {/* ── LIVE SESSION COCKPIT (Real-time tracking, 90s dynamic rotation, live checkin roster) ── */}
-            {(tab === "session" || navItem === "session") && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-                {sessionActive ? (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1.25fr", gap: 24, alignItems: "start" }}>
-                    {/* LEFT COLUMN: ACTIVE SESSION CONTROLS & QR */}
-                    <div style={{ background: "white", borderRadius: 20, border: "1.5px solid #e2e8f0", padding: 24, boxShadow: "0 4px 20px rgba(0,0,0,0.06)", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", marginBottom: 14 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#16a34a", fontWeight: 800, fontSize: 12, background: "#dcfce7", padding: "4px 12px", borderRadius: 20 }}>
-                          <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#16a34a", animation: "pulse 1.5s infinite" }} />
-                          LIVE SESSION ACTIVE
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, background: countdown < 60 ? "#fef2f2" : "#eff6ff", color: countdown < 60 ? "#ef4444" : "#2563eb", padding: "4px 12px", borderRadius: 20, fontSize: 13, fontWeight: 800 }}>
-                          <Clock size={14} /> {fmtTime(countdown)} left
-                        </div>
-                      </div>
-
-                      <div style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", marginBottom: 2 }}>
-                        {qrCourse} — {sessionCourseName || "Course Attendance"}
-                      </div>
-                      <div style={{ fontSize: 12, color: "#64748b", marginBottom: 16 }}>
-                        Active Session Code: <strong style={{ color: "#1E5A87" }}>{rotatingToken ? `ATT-${rotatingToken}` : sessionCode}</strong> · Radius: <strong>{allowedRadius}m</strong>
-                      </div>
-
-                      {/* 90-SECOND ROTATING PASSCODE CALLOUT */}
-                      <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 16, padding: "12px 24px", width: "100%", boxSizing: "border-box", marginBottom: 16 }}>
-                        <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5 }}>
-                          Current Session Code (Format: ATT-XXXX)
-                        </div>
-                        <div style={{ fontSize: 36, fontWeight: 900, letterSpacing: 4, color: "#1E5A87", fontFamily: "monospace", margin: "4px 0" }}>
-                          {rotatingToken ? `ATT-${rotatingToken}` : (sessionCode || "ATT-0000")}
-                        </div>
-                        {/* 90s progress bar */}
-                        <div style={{ width: "100%", height: 6, background: "#e2e8f0", borderRadius: 4, overflow: "hidden", marginTop: 6 }}>
-                          <div style={{
-                            width: `${(rotatingSecs / 90) * 100}%`,
-                            height: "100%",
-                            background: rotatingSecs <= 10 ? "#ef4444" : "#2A6B9E",
-                            transition: "width 0.4s linear, background 0.3s ease"
-                          }} />
-                        </div>
-                        <div style={{ fontSize: 11, color: rotatingSecs <= 10 ? "#ef4444" : "#64748b", fontWeight: 600, marginTop: 4 }}>
-                          Refreshes in {rotatingSecs}s
-                        </div>
-                      </div>
-
-                      {/* QR Visual */}
-                      <div style={{ padding: 12, background: "#f8fafc", borderRadius: 16, border: "1px solid #e2e8f0", marginBottom: 16 }}>
-                        <QRPlaceholder code={rotatingToken ? `ATT-${rotatingToken}` : (sessionCode || "ATT-0000")} size={190} />
-                      </div>
-
-                      {/* 📽️ PROJECT TO SCREEN BUTTON */}
-                      <button
-                        type="button"
-                        onClick={() => setShowProjector(true)}
-                        style={{
-                          width: "100%", padding: "13px 18px", borderRadius: 12,
-                          background: "linear-gradient(135deg, #0f172a, #1E5A87)",
-                          color: "white", border: "2px solid #38bdf8", fontWeight: 800, fontSize: 13,
-                          cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-                          gap: 8, boxShadow: "0 6px 18px rgba(56,189,248,0.25)", marginBottom: 10
-                        }}
-                      >
-                        <Maximize2 size={16} color="#38bdf8" /> 📽️ Project to Screen (Auditorium Mode)
-                      </button>
-
-                      {/* CLOSE SESSION BUTTON */}
-                      <button
-                        onClick={closeSession}
-                        style={{
-                          width: "100%", padding: "11px 16px", borderRadius: 12,
-                          background: "#ef4444", color: "white", border: "none",
-                          fontWeight: 700, fontSize: 13, cursor: "pointer",
-                          display: "flex", alignItems: "center", justifyContent: "center", gap: 8
-                        }}
-                      >
-                        <XCircle size={16} /> End & Close Session
-                      </button>
-                    </div>
-
-                    {/* RIGHT COLUMN: LIVE REAL-TIME STUDENT ROSTER STREAM */}
-                    <div style={{ background: "white", borderRadius: 20, border: "1.5px solid #e2e8f0", padding: 24, boxShadow: "0 4px 20px rgba(0,0,0,0.06)", display: "flex", flexDirection: "column", height: "100%", minHeight: 480 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, paddingBottom: 14, borderBottom: "1px solid #f1f5f9" }}>
-                        <div>
-                          <h3 style={{ fontSize: 17, fontWeight: 800, color: "#0f172a", margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
-                            <Users size={18} color="#2563eb" /> Live Check-in Stream
-                          </h3>
-                          <p style={{ fontSize: 12, color: "#64748b", margin: "2px 0 0" }}>Students appear here instantly as they mark attendance</p>
-                        </div>
-                        <span style={{ background: "#eff6ff", color: "#2563eb", fontWeight: 800, fontSize: 13, padding: "5px 14px", borderRadius: 20, border: "1px solid #bfdbfe" }}>
-                          {liveStudents.length} Students Present
-                        </span>
-                      </div>
-
-                      <div style={{ flex: 1, overflowY: "auto", maxHeight: 420 }}>
-                        {liveStudents.length > 0 ? (
-                          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                            <thead>
-                              <tr style={{ background: "#f8fafc" }}>
-                                {["Student Name", "Index Number", "Time", "Method", "Status"].map(h => (
-                                  <th key={h} style={{ textAlign: "left", padding: "10px 14px", color: "#64748b", fontWeight: 600, fontSize: 12, borderBottom: "1px solid #e2e8f0" }}>{h}</th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {liveStudents.map((st, i) => (
-                                <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                                  <td style={{ padding: "12px 14px", fontWeight: 700, color: "#0f172a" }}>{st.name}</td>
-                                  <td style={{ padding: "12px 14px", color: "#2563eb", fontFamily: "monospace", fontWeight: 600 }}>{st.index}</td>
-                                  <td style={{ padding: "12px 14px", color: "#64748b" }}>{st.time || "Just now"}</td>
-                                  <td style={{ padding: "12px 14px" }}>
-                                    <span style={{ fontSize: 11, background: "#e0f2fe", color: "#0369a1", padding: "2px 8px", borderRadius: 10, fontWeight: 700 }}>
-                                      {st.method || "Dynamic QR"}
-                                    </span>
-                                  </td>
-                                  <td style={{ padding: "12px 14px" }}>
-                                    <span style={{ background: "#dcfce7", color: "#166534", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 800 }}>
-                                      ✓ Verified
-                                    </span>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        ) : (
-                          <div style={{ textAlign: "center", padding: "70px 20px", color: "#94a3b8" }}>
-                            <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#eff6ff", color: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
-                              <Smartphone size={24} />
-                            </div>
-                            <div style={{ fontWeight: 800, fontSize: 15, color: "#334155" }}>Waiting for Student Check-ins...</div>
-                            <div style={{ fontSize: 12, marginTop: 4 }}>Students can scan the QR code or enter code <strong>{sessionCode}</strong> on their phones.</div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  /* NO ACTIVE SESSION: LAUNCH COCKPIT */
-                  <div style={{ background: "white", borderRadius: 20, border: "1.5px solid #e2e8f0", padding: 28, boxShadow: "0 4px 20px rgba(0,0,0,0.06)" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, borderBottom: "1px solid #f1f5f9", paddingBottom: 16 }}>
-                      <div>
-                        <h2 style={{ fontSize: 20, fontWeight: 800, color: "#0f172a", margin: 0 }}>Open a Live Attendance Session</h2>
-                        <p style={{ fontSize: 13, color: "#64748b", margin: "4px 0 0" }}>Configure course, duration (max 60 mins), and geofence radius for this class</p>
-                      </div>
-                      <span style={{ background: "#f1f5f9", color: "#64748b", padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700 }}>
-                        Session Inactive
-                      </span>
-                    </div>
-
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20, marginBottom: 24 }}>
-                      <div>
-                        <label style={{ fontSize: 12, fontWeight: 700, color: "#475569", display: "block", marginBottom: 6 }}>1. SELECT COURSE</label>
-                        <select
-                          value={qrCourse}
-                          onChange={e => setQrCourse(e.target.value)}
-                          style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: 13, fontWeight: 600, color: "#0f172a" }}
-                        >
-                          {courses.map(c => <option key={c.id || c.code} value={c.code}>{c.code} — {c.name}</option>)}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label style={{ fontSize: 12, fontWeight: 700, color: "#475569", display: "block", marginBottom: 6 }}>2. DURATION (MAX 60 MINS)</label>
-                        <select
-                          value={timeWindow}
-                          onChange={e => setTimeWindow(e.target.value)}
-                          style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: 13, fontWeight: 600, color: "#0f172a" }}
-                        >
-                          {["5", "10", "15", "20", "30", "45", "60"].map(m => (
-                            <option key={m} value={m}>{m} minutes</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label style={{ fontSize: 12, fontWeight: 700, color: "#475569", display: "block", marginBottom: 6 }}>3. GEOFENCE CLASSROOM RADIUS</label>
-                        <select
-                          value={allowedRadius}
-                          onChange={e => setAllowedRadius(e.target.value)}
-                          style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: 13, fontWeight: 600, color: "#0f172a" }}
-                        >
-                          <option value="25">25m — Small Computer Lab</option>
-                          <option value="50">50m — Standard Classroom</option>
-                          <option value="100">100m — Large Lecture Hall</option>
-                          <option value="200">200m — Auditorium / Amphitheater</option>
-                          <option value="350">350m — Campus Building Complex</option>
-                          <option value="500">500m — Open Quad / Outdoor Ground</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={openSession}
-                      style={{
-                        padding: "14px 28px", borderRadius: 12, border: "none",
-                        background: "linear-gradient(135deg,#1d4ed8,#2563eb)", color: "white",
-                        fontWeight: 800, fontSize: 14, cursor: "pointer", display: "flex",
-                        alignItems: "center", gap: 10, boxShadow: "0 4px 14px rgba(37,99,235,0.3)"
-                      }}
-                    >
-                      <QrCode size={18} /> Launch Live Attendance Session
-                    </button>
-                  </div>
-                )}
-
-                {/* RECENT SESSIONS TABLE WITH VIEW LIST BUTTON */}
-                <div style={{ background: "white", borderRadius: 20, border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)", overflow: "hidden" }}>
-                  <div style={{ padding: "18px 24px", borderBottom: "1px solid #f1f5f9", fontWeight: 800, fontSize: 15, display: "flex", alignItems: "center", gap: 8 }}>
-                    <RefreshCw size={16} color="#64748b" /> Recent Sessions & Final Verified Rosters · {level.label}
-                  </div>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                    <thead>
-                      <tr style={{ background: "#f8fafc" }}>
-                        {["Course", "Session Code", "Date", "Check-ins", "Status", "Actions"].map(h => (
-                          <th key={h} style={{ textAlign: "left", padding: "11px 20px", color: "#64748b", fontWeight: 600, fontSize: 12, borderBottom: "1px solid #e2e8f0" }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {level.sessions.map(s => (
-                        <tr key={s.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                          <td style={{ padding: "12px 20px", fontWeight: 700, color: "#0f172a" }}>{s.course}</td>
-                          <td style={{ padding: "12px 20px", color: "#2563eb", fontWeight: 700, fontFamily: "monospace" }}>{s.id}</td>
-                          <td style={{ padding: "12px 20px", color: "#64748b" }}>{s.date}</td>
-                          <td style={{ padding: "12px 20px", fontWeight: 700 }}>{s.checkins} Present</td>
-                          <td style={{ padding: "12px 20px" }}>
-                            <span style={{ background: s.status === "active" ? "#dcfce7" : "#f1f5f9", color: s.status === "active" ? "#166534" : "#64748b", padding: "3px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700 }}>
-                              {s.status === "active" ? "Active" : "Closed"}
-                            </span>
-                          </td>
-                          <td style={{ padding: "12px 20px" }}>
-                            <button
-                              onClick={() => handleViewSessionList(s)}
-                              style={{ display: "flex", alignItems: "center", gap: 6, background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 8, padding: "6px 14px", fontSize: 12, color: "#1d4ed8", cursor: "pointer", fontWeight: 700 }}
-                            >
-                              <Eye size={13} /> View List
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
             {tab === "qr" && (
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
                 <div style={{ background: "white", borderRadius: 16, border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)", padding: 24 }}>
@@ -2131,137 +1898,288 @@ export default function LecturerDashboard() {
         {/* ══ REPORTS PAGE (nav-driven, separate from dashboard) ══ */}
         {level && navItem === "session" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-              {/* LIVE SESSION HEADER BANNER */}
-              <div style={{
-                background: sessionActive ? "linear-gradient(135deg, #064e3b 0%, #065f46 100%)" : "white",
-                color: sessionActive ? "white" : "#0f172a",
-                borderRadius: 18, padding: 24, border: "1px solid #e2e8f0",
-                display: "flex", justifyContent: "space-between", alignItems: "center",
-                boxShadow: sessionActive ? "0 10px 25px rgba(6,95,70,0.2)" : "0 1px 4px rgba(0,0,0,0.04)"
-              }}>
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                    <div style={{ width: 10, height: 10, borderRadius: "50%", background: sessionActive ? "#34d399" : "#94a3b8", boxShadow: sessionActive ? "0 0 10px #34d399" : "none" }} />
-                    <span style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1, color: sessionActive ? "#a7f3d0" : "#64748b" }}>
-                      {sessionActive ? "SESSION CURRENTLY LIVE & ACCEPTING CHECK-INS" : "NO ACTIVE SESSION RUNNING"}
-                    </span>
+              {sessionActive ? (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1.25fr", gap: 24, alignItems: "start" }}>
+                  {/* LEFT COLUMN: ACTIVE SESSION CONTROLS & QR */}
+                  <div style={{ background: "white", borderRadius: 20, border: "1.5px solid #e2e8f0", padding: 24, boxShadow: "0 4px 20px rgba(0,0,0,0.06)", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", marginBottom: 14 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#16a34a", fontWeight: 800, fontSize: 12, background: "#dcfce7", padding: "4px 12px", borderRadius: 20 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#16a34a", animation: "pulse 1.5s infinite" }} />
+                        LIVE SESSION ACTIVE
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, background: countdown < 60 ? "#fef2f2" : "#eff6ff", color: countdown < 60 ? "#ef4444" : "#2563eb", padding: "4px 12px", borderRadius: 20, fontSize: 13, fontWeight: 800 }}>
+                        <Clock size={14} /> {fmtTime(countdown)} left
+                      </div>
+                    </div>
+
+                    <div style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", marginBottom: 2 }}>
+                      {qrCourse} — {sessionCourseName || "Course Attendance"}
+                    </div>
+                    <div style={{ fontSize: 12, color: "#64748b", marginBottom: 16 }}>
+                      Active Session Code: <strong style={{ color: "#1E5A87" }}>{rotatingToken ? `ATT-${rotatingToken}` : sessionCode}</strong> · Radius: <strong>{allowedRadius}m</strong>
+                    </div>
+
+                    {/* 90-SECOND ROTATING PASSCODE CALLOUT */}
+                    <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 16, padding: "12px 24px", width: "100%", boxSizing: "border-box", marginBottom: 16 }}>
+                      <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5 }}>
+                        Current Session Code (Format: ATT-XXXX)
+                      </div>
+                      <div style={{ fontSize: 36, fontWeight: 900, letterSpacing: 4, color: "#1E5A87", fontFamily: "monospace", margin: "4px 0" }}>
+                        {rotatingToken ? `ATT-${rotatingToken}` : (sessionCode || "ATT-0000")}
+                      </div>
+                      {/* 90s progress bar */}
+                      <div style={{ width: "100%", height: 6, background: "#e2e8f0", borderRadius: 4, overflow: "hidden", marginTop: 6 }}>
+                        <div style={{
+                          width: `${(rotatingSecs / 90) * 100}%`,
+                          height: "100%",
+                          background: rotatingSecs <= 10 ? "#ef4444" : "#2A6B9E",
+                          transition: "width 0.4s linear, background 0.3s ease"
+                        }} />
+                      </div>
+                      <div style={{ fontSize: 11, color: rotatingSecs <= 10 ? "#ef4444" : "#64748b", fontWeight: 600, marginTop: 4 }}>
+                        Refreshes in {rotatingSecs}s
+                      </div>
+                    </div>
+
+                    {/* QR Visual */}
+                    <div style={{ padding: 12, background: "#f8fafc", borderRadius: 16, border: "1px solid #e2e8f0", marginBottom: 16 }}>
+                      <QRPlaceholder code={rotatingToken ? `ATT-${rotatingToken}` : (sessionCode || "ATT-0000")} size={190} />
+                    </div>
+
+                    {/* 📽️ PROJECT TO SCREEN BUTTON */}
+                    <button
+                      type="button"
+                      onClick={() => setShowProjector(true)}
+                      style={{
+                        width: "100%", padding: "13px 18px", borderRadius: 12,
+                        background: "linear-gradient(135deg, #0f172a, #1E5A87)",
+                        color: "white", border: "2px solid #38bdf8", fontWeight: 800, fontSize: 13,
+                        cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                        gap: 8, boxShadow: "0 6px 18px rgba(56,189,248,0.25)", marginBottom: 10
+                      }}
+                    >
+                      <Maximize2 size={16} color="#38bdf8" /> 📽️ Project to Screen (Auditorium Mode)
+                    </button>
+
+                    {/* CLOSE SESSION BUTTON */}
+                    <button
+                      type="button"
+                      onClick={closeSession}
+                      style={{
+                        width: "100%", padding: "11px 18px", borderRadius: 12,
+                        background: "#fef2f2", color: "#ef4444", border: "1px solid #fecaca",
+                        fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex",
+                        alignItems: "center", justifyContent: "center", gap: 6
+                      }}
+                    >
+                      <XCircle size={15} /> End Attendance Session
+                    </button>
                   </div>
-                  <h2 style={{ fontSize: 22, fontWeight: 800, margin: 0, color: sessionActive ? "white" : "#1e293b" }}>
-                    {sessionActive ? `${qrCourse || "Class Attendance"} · Session ${sessionCode}` : "Open an Attendance Session"}
-                  </h2>
-                  <div style={{ fontSize: 13, color: sessionActive ? "#d1fae5" : "#64748b", marginTop: 4 }}>
-                    {sessionActive
-                      ? `Allowed Radius: ${allowedRadius}m · Duration: ${timeWindow} mins · ${liveStudents.length} students checked in`
-                      : "Launch a real-time geofenced session with unguessable 90-second rotating passcodes."}
+
+                  {/* RIGHT COLUMN: REAL-TIME VERIFIED STUDENT CHECK-IN ROSTER */}
+                  <div style={{ background: "white", borderRadius: 20, border: "1.5px solid #e2e8f0", padding: 24, boxShadow: "0 4px 20px rgba(0,0,0,0.06)", display: "flex", flexDirection: "column" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, paddingBottom: 14, borderBottom: "1px solid #f1f5f9" }}>
+                      <div>
+                        <div style={{ fontSize: 16, fontWeight: 800, color: "#0f172a", display: "flex", alignItems: "center", gap: 8 }}>
+                          <Users size={18} color="#2563eb" /> Live Student Check-in Stream
+                        </div>
+                        <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+                          Students verified via GPS radius & 90s rotating passcode
+                        </div>
+                      </div>
+                      <span style={{ background: "#eff6ff", color: "#2563eb", fontWeight: 800, fontSize: 13, padding: "4px 14px", borderRadius: 20, border: "1px solid #bfdbfe" }}>
+                        {liveStudents.length} Students Present
+                      </span>
+                    </div>
+
+                    {liveStudents.length > 0 ? (
+                      <div style={{ maxHeight: 380, overflowY: "auto" }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                          <thead>
+                            <tr style={{ background: "#f8fafc" }}>
+                              {["Student Name", "Index", "Time", "Device & Check-in", "Status"].map(h => (
+                                <th key={h} style={{ textAlign: "left", padding: "10px 14px", color: "#64748b", fontWeight: 600, fontSize: 12, borderBottom: "1px solid #e2e8f0" }}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {liveStudents.map((st, i) => (
+                              <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                                <td style={{ padding: "12px 14px", fontWeight: 700, color: "#1e293b" }}>{st.name}</td>
+                                <td style={{ padding: "12px 14px", color: "#3b82f6", fontWeight: 600, fontFamily: "monospace" }}>{st.index}</td>
+                                <td style={{ padding: "12px 14px", color: "#64748b" }}>{st.time || "Just now"}</td>
+                                <td style={{ padding: "12px 14px" }}>
+                                  <div style={{ fontWeight: 600, fontSize: 12, color: "#0f172a" }}>{st.device_name || "Verified Device"}</div>
+                                  <span style={{ fontSize: 10, background: "#e0f2fe", color: "#0369a1", padding: "1px 6px", borderRadius: 8, fontWeight: 700 }}>
+                                    {st.method || "Dynamic QR"}
+                                  </span>
+                                </td>
+                                <td style={{ padding: "12px 14px" }}>
+                                  <span style={{ background: "#dcfce7", color: "#166534", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700 }}>
+                                    ✓ Present
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div style={{ textAlign: "center", padding: "60px 20px", color: "#94a3b8" }}>
+                        <div style={{ width: 52, height: 52, borderRadius: "50%", background: "#eff6ff", color: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
+                          <Smartphone size={26} />
+                        </div>
+                        <div style={{ fontWeight: 700, fontSize: 15, color: "#1e293b" }}>Waiting for students to check in...</div>
+                        <div style={{ fontSize: 12, marginTop: 4 }}>
+                          Students can scan the QR code or enter code <strong>{rotatingToken ? `ATT-${rotatingToken}` : (sessionCode || "ATT-0000")}</strong>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
+              ) : (
+                /* NO ACTIVE SESSION: LAUNCH CARD + RECENT SESSIONS */
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+                  <div style={{ background: "white", borderRadius: 16, border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)", padding: 24 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+                      <QrCode size={18} color="#3b82f6" />
+                      <span style={{ fontWeight: 700, fontSize: 16 }}>Launch Live Attendance Session</span>
+                      <span style={{ fontSize: 12, background: level.bg, color: level.color, padding: "2px 10px", borderRadius: 20, fontWeight: 600, border: `1px solid ${level.border}` }}>{level.label}</span>
+                    </div>
+                    <div style={{ marginBottom: 16 }}>
+                      <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6 }}>Select Course</label>
+                      <div style={{ position: "relative" }}>
+                        <select
+                          value={qrCourse}
+                          onChange={e => setQrCourse(e.target.value)}
+                          disabled={sessionActive}
+                          style={{ width: "100%", appearance: "none", padding: "10px 36px 10px 12px", border: "1px solid #e2e8f0", borderRadius: 9, fontSize: 13, background: sessionActive ? "#f8fafc" : "white", color: "#1e293b", cursor: "pointer" }}
+                        >
+                          {courses.map(c => <option key={c.code} value={c.code}>{c.code} — {c.name}</option>)}
+                        </select>
+                        <ChevronDown size={14} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "#94a3b8" }} />
+                      </div>
+                    </div>
+                    <div style={{ marginBottom: 16 }}>
+                      <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6 }}>Session Duration (Max 60 Mins)</label>
+                      <div style={{ position: "relative" }}>
+                        <select
+                          value={timeWindow}
+                          onChange={e => setTimeWindow(e.target.value)}
+                          disabled={sessionActive}
+                          style={{ width: "100%", appearance: "none", padding: "10px 36px 10px 12px", border: "1px solid #e2e8f0", borderRadius: 9, fontSize: 13, background: sessionActive ? "#f8fafc" : "white", color: "#1e293b", cursor: "pointer" }}
+                        >
+                          {["5", "10", "15", "20", "30", "45", "60"].map(t => <option key={t} value={t}>{t} minutes</option>)}
+                        </select>
+                        <ChevronDown size={14} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "#94a3b8" }} />
+                      </div>
+                    </div>
+                    <div style={{ marginBottom: 20 }}>
+                      <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6 }}>
+                        Geofence Attendance Radius
+                      </label>
+                      <div style={{ position: "relative" }}>
+                        <select
+                          value={allowedRadius}
+                          onChange={e => setAllowedRadius(e.target.value)}
+                          disabled={sessionActive}
+                          style={{ width: "100%", appearance: "none", padding: "10px 36px 10px 12px", border: "1px solid #e2e8f0", borderRadius: 9, fontSize: 13, background: sessionActive ? "#f8fafc" : "white", color: "#1e293b", cursor: "pointer" }}
+                        >
+                          <option value="15">15 meters (Compact Lab / Tutorial Room)</option>
+                          <option value="25">25 meters (Small Classroom / Computer Lab)</option>
+                          <option value="50">50 meters (Standard Lecture Room)</option>
+                          <option value="100">100 meters (Large Lecture Hall)</option>
+                          <option value="200">200 meters (Auditorium / Campus Complex)</option>
+                          <option value="350">350 meters (Multi-tier Amphitheater)</option>
+                          <option value="500">500 meters (Open Quad / Outdoor Ground)</option>
+                        </select>
+                        <ChevronDown size={14} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "#94a3b8" }} />
+                      </div>
+                    </div>
 
-                <div style={{ display: "flex", gap: 10 }}>
-                  {sessionActive ? (
-                    <>
-                      <button
-                        onClick={() => setShowProjector(true)}
-                        style={{
-                          display: "flex", alignItems: "center", gap: 8, padding: "10px 18px",
-                          borderRadius: 10, background: "#38bdf8", color: "#0f172a",
-                          border: "none", fontWeight: 800, fontSize: 13, cursor: "pointer"
-                        }}
-                      >
-                        <Maximize2 size={16} /> Project to Screen
-                      </button>
-                      <button
-                        onClick={closeSession}
-                        style={{
-                          display: "flex", alignItems: "center", gap: 8, padding: "10px 18px",
-                          borderRadius: 10, background: "#ef4444", color: "white",
-                          border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer"
-                        }}
-                      >
-                        <XCircle size={16} /> Close Session
-                      </button>
-                    </>
-                  ) : (
                     <button
                       onClick={openSession}
                       style={{
-                        display: "flex", alignItems: "center", gap: 8, padding: "12px 24px",
-                        borderRadius: 12, background: "linear-gradient(135deg,#1d4ed8,#3b82f6)",
-                        color: "white", border: "none", fontWeight: 800, fontSize: 14, cursor: "pointer",
+                        width: "100%", padding: "13px", border: "none", borderRadius: 10,
+                        background: "linear-gradient(135deg,#1d4ed8,#3b82f6)", color: "white",
+                        fontWeight: 700, fontSize: 14, cursor: "pointer", display: "flex",
+                        alignItems: "center", justifyContent: "center", gap: 8,
                         boxShadow: "0 4px 14px rgba(37,99,235,0.3)"
                       }}
                     >
-                      <QrCode size={18} /> Launch Session Now
+                      <QrCode size={18} /> Launch Live Attendance Session
                     </button>
-                  )}
-                </div>
-              </div>
-
-              {/* LIVE ATTENDANCE ROSTER STREAM */}
-              <div style={{ background: "white", borderRadius: 18, border: "1px solid #e2e8f0", padding: 24, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18, paddingBottom: 14, borderBottom: "1px solid #f1f5f9" }}>
-                  <div>
-                    <h3 style={{ fontSize: 16, fontWeight: 800, color: "#0f172a", margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
-                      <Users size={18} color="#2563eb" /> Real-Time Verified Student Check-in Roster
-                    </h3>
-                    <p style={{ fontSize: 12, color: "#64748b", margin: "2px 0 0" }}>
-                      {sessionActive ? "Stream updates automatically as students scan QR or enter 6-digit code" : "Full verified roster at conclusion of session"}
-                    </p>
                   </div>
-                  <span style={{ background: "#eff6ff", color: "#2563eb", fontWeight: 800, fontSize: 13, padding: "4px 14px", borderRadius: 20, border: "1px solid #bfdbfe" }}>
-                    {liveStudents.length} Students Present
-                  </span>
-                </div>
 
-                {liveStudents.length > 0 ? (
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                    <thead>
-                      <tr style={{ background: "#f8fafc" }}>
-                        {["Student Name", "Index Number", "Time Checked In", "Method", "Device & Proximity", "Status"].map(h => (
-                          <th key={h} style={{ textAlign: "left", padding: "10px 16px", color: "#64748b", fontWeight: 600, fontSize: 12, borderBottom: "1px solid #e2e8f0" }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {liveStudents.map((st, i) => (
-                        <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                          <td style={{ padding: "12px 16px", fontWeight: 700, color: "#1e293b" }}>{st.name}</td>
-                          <td style={{ padding: "12px 16px", color: "#3b82f6", fontWeight: 600, fontFamily: "monospace" }}>{st.index}</td>
-                          <td style={{ padding: "12px 16px", color: "#64748b" }}>{st.time || "Just now"}</td>
-                          <td style={{ padding: "12px 16px" }}>
-                            <span style={{ fontSize: 11, background: "#e0f2fe", color: "#0369a1", padding: "2px 8px", borderRadius: 12, fontWeight: 700 }}>
-                              {st.method || "Dynamic QR"}
-                            </span>
-                          </td>
-                          <td style={{ padding: "12px 16px", color: "#10b981", fontSize: 12, fontWeight: 600 }}>
-                            ✓ In-Radius Verified
-                          </td>
-                          <td style={{ padding: "12px 16px" }}>
-                            <span style={{ background: "#dcfce7", color: "#166534", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700 }}>
-                              Present
-                            </span>
-                          </td>
+                  <div style={{ background: "white", borderRadius: 16, border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)", padding: 24, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                    <div style={{ textAlign: "center", color: "#cbd5e1" }}>
+                      <QrCode size={64} style={{ marginBottom: 16, color: "#94a3b8" }} />
+                      <div style={{ fontWeight: 700, color: "#1e293b", fontSize: 16 }}>No Active Session</div>
+                      <div style={{ fontSize: 13, color: "#64748b", marginTop: 4, maxWidth: 280 }}>
+                        Select course, duration, and radius, then launch to generate 90-second rotating QR & passcodes.
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* RECENT SESSIONS TABLE */}
+                  <div style={{ gridColumn: "1 / -1", background: "white", borderRadius: 16, border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)", overflow: "hidden" }}>
+                    <div style={{ padding: "18px 24px", borderBottom: "1px solid #f1f5f9", fontWeight: 700, fontSize: 15, display: "flex", alignItems: "center", gap: 8 }}>
+                      <RefreshCw size={16} color="#64748b" /> Recent Attendance Sessions · {level.label}
+                    </div>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ background: "#f8fafc" }}>
+                          {["Course", "Session Code", "Date", "Check-ins", "Status", "Actions"].map(h => (
+                            <th key={h} style={{ textAlign: "left", padding: "10px 16px", color: "#64748b", fontWeight: 600, fontSize: 12, borderBottom: "1px solid #e2e8f0" }}>{h}</th>
+                          ))}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                ) : (
-                  <div style={{ textAlign: "center", padding: "60px 20px", color: "#94a3b8" }}>
-                    <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#eff6ff", color: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
-                      <Smartphone size={24} />
-                    </div>
-                    <div style={{ fontWeight: 700, fontSize: 14, color: "#334155" }}>
-                      {sessionActive ? "Waiting for students to check in..." : "No check-ins recorded yet"}
-                    </div>
-                    <div style={{ fontSize: 12, marginTop: 4 }}>
-                      {sessionActive ? "Project the QR code to allow students to mark present" : "Launch a session above to begin attendance tracking"}
-                    </div>
+                      </thead>
+                      <tbody>
+                        {recentSessions.length === 0 ? (
+                          <tr><td colSpan={6} style={{ padding: "28px 16px", textAlign: "center", color: "#94a3b8" }}>No recent sessions found for this level.</td></tr>
+                        ) : (
+                          recentSessions.map((s, i) => (
+                            <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                              <td style={{ padding: "12px 16px", fontWeight: 600, color: "#1e293b" }}>{s.course}</td>
+                              <td style={{ padding: "12px 16px", color: "#3b82f6", fontWeight: 700, fontFamily: "monospace" }}>{s.id}</td>
+                              <td style={{ padding: "12px 16px", color: "#64748b" }}>{s.date}</td>
+                              <td style={{ padding: "12px 16px", fontWeight: 700 }}>{s.checkins}</td>
+                              <td style={{ padding: "12px 16px" }}>
+                                <span style={{
+                                  background: s.status === "active" ? "#dcfce7" : "#f1f5f9",
+                                  color: s.status === "active" ? "#166534" : "#64748b",
+                                  padding: "2px 8px", borderRadius: 12, fontSize: 11, fontWeight: 700
+                                }}>
+                                  {s.status === "active" ? "Active" : "Closed"}
+                                </span>
+                              </td>
+                              <td style={{ padding: "12px 16px" }}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleViewSessionList(s)}
+                                  style={{
+                                    display: "inline-flex", alignItems: "center", gap: 4,
+                                    padding: "5px 11px", borderRadius: 8, border: "1px solid #bfdbfe",
+                                    background: "#eff6ff", color: "#1d4ed8", fontWeight: 700, fontSize: 12,
+                                    cursor: "pointer"
+                                  }}
+                                >
+                                  <Users size={13} /> View List
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           )}
 
-          {level && navItem === "reports" && (
+        {/* ══ REPORTS PAGE (nav-driven, separate from dashboard) ══ */}
+        {level && navItem === "reports" && (
           <main style={{ flex: 1, padding: "28px 32px", overflowY: "auto" }}>
             <div style={{ marginBottom: 24 }}>
               <h1 style={{ fontSize: 24, fontWeight: 700, color: "#0f172a", margin: 0 }}>Attendance Reports</h1>
@@ -3045,6 +2963,19 @@ export default function LecturerDashboard() {
         onClose={() => setAlertModalStudent(null)}
         onConfirm={handleConfirmAlert}
         onDelete={handleDeleteRecord}
+      />
+
+      {/* AUDITORIUM PROJECTOR MODAL */}
+      <ProjectorModal
+        isOpen={showProjector}
+        onClose={() => setShowProjector(false)}
+        sessionId={sessionCode}
+        courseCode={qrCourse}
+        courseName={sessionCourseName}
+        rotatingToken={rotatingToken}
+        rotatingSecs={rotatingSecs}
+        totalWindow={90}
+        sessionCountdown={countdown}
       />
 
       <style>{`
