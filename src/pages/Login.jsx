@@ -64,6 +64,15 @@ export default function Login() {
       };
       const token = data.data?.token || data.token || data.access_token || null;
 
+      // STRICT ROLE ABSTRACTION: Ensure only Students can log into Student Portal
+      const userRole = (userData.role || '').toLowerCase();
+      if (userRole !== 'student') {
+        const portalTarget = userRole === 'lecturer' ? 'Lecturer Portal' : 'Course Rep Portal';
+        setError(`Access Denied: Your account is registered as a ${userRole === 'lecturer' ? 'Lecturer' : 'Course Representative'}. You cannot log into the Student Portal. Please use the ${portalTarget}.`);
+        setLoading(false);
+        return;
+      }
+
       // Check if student must change password on first login
       if (userData.must_change_password) {
         setTempUser(userData);

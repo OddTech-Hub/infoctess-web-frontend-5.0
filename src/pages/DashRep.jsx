@@ -298,6 +298,27 @@ function downloadSessionPDF(session) {
 // ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
 
 export default function CourseRepDashboard() {
+  // ROLE GUARD: Only Course Reps admitted
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem("web_user");
+      if (!stored) {
+        navigate("/portal");
+        return;
+      }
+      const user = JSON.parse(stored);
+      const role = (user.role || "").toLowerCase();
+      if (role !== "rep") {
+        if (role === "lecturer") navigate("/lec");
+        else if (role === "student") navigate("/student");
+        else navigate("/portal");
+      }
+    } catch (e) {
+      navigate("/portal");
+    }
+  }, [navigate]);
+
+
   const navigate = useNavigate();
   const [tab, setTab]             = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(true);

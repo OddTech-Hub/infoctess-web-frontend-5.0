@@ -593,6 +593,27 @@ function AlertDetailModal({ student, onClose, onConfirm, onDelete }) {
 // ─── MAIN ─────────────────────────────────────────────────────────────────────
 
 export default function LecturerDashboard() {
+  // ROLE GUARD: Only Lecturers admitted
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem("web_user");
+      if (!stored) {
+        navigate("/portal");
+        return;
+      }
+      const user = JSON.parse(stored);
+      const role = (user.role || "").toLowerCase();
+      if (role !== "lecturer" && !user.is_staff && !user.is_superuser) {
+        if (role === "rep") navigate("/rep");
+        else if (role === "student") navigate("/student");
+        else navigate("/portal");
+      }
+    } catch (e) {
+      navigate("/portal");
+    }
+  }, [navigate]);
+
+
   const navigate = useNavigate();
   const [showLevelModal, setShowLevelModal] = useState(true);
   const [selectedLevel, setSelectedLevel] = useState(null);

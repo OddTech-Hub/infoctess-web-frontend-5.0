@@ -13,6 +13,27 @@ import SecurityCheckModal from '../components/SecurityCheckModal';
 import AttendanceCardModal from '../components/AttendanceCardModal';
 
 export default function DashStudent() {
+  // ROLE GUARD: Only Students admitted
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem("web_user");
+      if (!stored) {
+        navigate("/login");
+        return;
+      }
+      const user = JSON.parse(stored);
+      const role = (user.role || "").toLowerCase();
+      if (role !== "student") {
+        if (role === "lecturer") navigate("/lec");
+        else if (role === "rep") navigate("/rep");
+        else navigate("/login");
+      }
+    } catch (e) {
+      navigate("/login");
+    }
+  }, [navigate]);
+
+
   const navigate = useNavigate();
 
   // Student State

@@ -91,6 +91,12 @@ export default function Portal() {
         return;
       }
 
+      const userRole = (json.data.user?.role || '').toLowerCase();
+      if (userRole !== 'lecturer' && !json.data.user?.is_staff && !json.data.user?.is_superuser) {
+        setLectError(`Access Denied: Your account is registered as a ${userRole === 'rep' ? 'Course Representative' : 'Student'}. You cannot log into the Lecturer Portal. Please use the appropriate portal.`);
+        return;
+      }
+
       saveWebUser(json.data.user, json.data.token);
       setLectSuccess(`Welcome back, ${json.data.user.first_name}!`);
       setTimeout(() => navigate('/lec'), 800);
@@ -130,13 +136,15 @@ export default function Portal() {
         return;
       }
 
+      const userRole = (json.data.user?.role || '').toLowerCase();
+      if (userRole !== 'rep') {
+        setRepError(`Access Denied: Your account is registered as a ${userRole === 'lecturer' ? 'Lecturer' : 'Student'}. You cannot log into the Course Representative Portal. Please use the appropriate portal.`);
+        return;
+      }
+
       saveWebUser(json.data.user, json.data.token);
       setRepSuccess(`Welcome, ${json.data.user.first_name}!`);
-      if (json.data.user.role === 'STUDENT') {
-        setTimeout(() => navigate('/student'), 800);
-      } else {
-        setTimeout(() => navigate('/rep'), 800);
-      }
+      setTimeout(() => navigate('/rep'), 800);
 
     } catch (err) {
       console.error('Rep login error:', err);
