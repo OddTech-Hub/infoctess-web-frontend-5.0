@@ -1,16 +1,14 @@
-import ProjectorModal from "../components/ProjectorModal";
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
   QrCode, Users, Trash2, Plus, Eye, Clock, CheckCircle,
   LayoutDashboard, LogOut, PanelLeftClose, PanelLeftOpen,
   GraduationCap, ChevronDown, X, Smartphone, Hash,
-  UserCheck, AlertCircle, Wifi, Shield, Download, FileText
-, Maximize2} from "lucide-react";
+  UserCheck, AlertCircle, Wifi, Shield
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { request } from "../api/client";
-import { getRotatingSessionState } from "../utils/sessionCode";
 
-// ─── STATIC DATA FALLBACK ───────────────────────────────────────────────────
+// ─── STATIC DATA (swap with DB calls) ────────────────────────────────────────
 
 const MY_COURSES = [
   { code: "ICTE125", name: "Multimedia Authoring in Education" },
@@ -28,6 +26,21 @@ const INITIAL_SESSIONS = [
       { name: "Emmanuel Oduro",   index: "5261000215", method: "Session Code",  time: "2:49:01 PM", avatar: "EO" },
     ]
   },
+  {
+    id: "ATT-6162", course: "ICTW123", courseName: "Fundamentals of Computer Programming",
+    date: "6/1/2026", checkins: 1, status: "closed", timeWindow: 10,
+    students: [
+      { name: "Sandra Mensah",    index: "5261000712", method: "QR Code",      time: "4:10:05 PM", avatar: "SM" },
+    ]
+  },
+  {
+    id: "ATT-6656", course: "ICTW123", courseName: "Fundamentals of Computer Programming",
+    date: "5/31/2026", checkins: 2, status: "closed", timeWindow: 15,
+    students: [
+      { name: "Nimako Joe",       index: "5261000334", method: "Session Code",  time: "4:28:57 PM", avatar: "NJ" },
+      { name: "Heis Boateng",     index: "523232323",  method: "QR Code",      time: "4:30:12 PM", avatar: "HB" },
+    ]
+  },
 ];
 
 // Simulated students who can "walk in" during a live session
@@ -36,7 +49,7 @@ const WALK_IN_POOL = [
   { name: "Daniel Amoh",       index: "5261000667", method: "Session Code", avatar: "DA" },
   { name: "Emmanuel Oduro",    index: "5261000215", method: "QR Code",     avatar: "EO" },
   { name: "Emmanuel Twumasi",  index: "5261000267", method: "Session Code", avatar: "ET" },
-  { name: "Heis Boateng",      index: "5261000323",  method: "QR Code",     avatar: "HB" },
+  { name: "Heis Boateng",      index: "523232323",  method: "QR Code",     avatar: "HB" },
   { name: "Nimako Joe",        index: "5261000334", method: "Session Code", avatar: "NJ" },
   { name: "Osie Eugen Bonu",   index: "5261000660", method: "QR Code",     avatar: "OB" },
   { name: "Sandra Mensah",     index: "5261000712", method: "Session Code", avatar: "SM" },
@@ -45,119 +58,34 @@ const WALK_IN_POOL = [
 // ─── QR VISUAL ───────────────────────────────────────────────────────────────
 
 function QRVisual({ code, size = 200 }) {
-  const [imgError, setImgError] = useState(false);
-  const [imgLoaded, setImgLoaded] = useState(false);
-
-  const payload = `infoctess://session/${code || 'ATT-0000'}`;
-  const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size * 2}x${size * 2}&data=${encodeURIComponent(payload)}&margin=10`;
-
-  if (imgError) {
-    const matrixSize = 21;
-    const cellSize = size / matrixSize;
-    
-    const hash = (r, c) => {
-      let val = 0;
-      const str = `${code}-${r}-${c}`;
-      for (let i = 0; i < str.length; i++) {
-        val = (val << 5) - val + str.charCodeAt(i);
-        val |= 0;
-      }
-      return Math.abs(val) % 2 === 0;
-    };
-
-    const isFinder = (r, c) => {
-      if (r < 7 && c < 7) return true;
-      if (r < 7 && c >= 14) return true;
-      if (r >= 14 && c < 7) return true;
-      return false;
-    };
-
-    const isTiming = (r, c) => {
-      if (r === 6 && c >= 7 && c < 14) return true;
-      if (c === 6 && r >= 7 && r < 14) return true;
-      return false;
-    };
-
-    const isAlignment = (r, c) => {
-      return r >= 14 && r <= 18 && c >= 14 && c <= 18;
-    };
-
-    const cells = [];
-    for (let r = 0; r < matrixSize; r++) {
-      for (let c = 0; c < matrixSize; c++) {
-        if (!isFinder(r, c) && !isTiming(r, c) && !isAlignment(r, c)) {
-          if (hash(r, c)) cells.push([r, c]);
-        }
-      }
+  const seed = code.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+  const cells = [];
+  for (let r = 0; r < 13; r++) {
+    for (let c = 0; c < 13; c++) {
+      const on = ((seed * (r * 17 + 1) * (c * 13 + 1)) % 5) > 1;
+      if (on) cells.push([r, c]);
     }
-
-    return (
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display: "block", borderRadius: 8, background: "#ffffff" }}>
-        <rect width={size} height={size} fill="white" />
-        <rect x={0} y={0} width={7 * cellSize} height={7 * cellSize} fill="#0f172a" rx={cellSize} />
-        <rect x={cellSize} y={cellSize} width={5 * cellSize} height={5 * cellSize} fill="white" rx={cellSize * 0.5} />
-        <rect x={2 * cellSize} y={2 * cellSize} width={3 * cellSize} height={3 * cellSize} fill="#0f172a" rx={cellSize * 0.5} />
-
-        <rect x={14 * cellSize} y={0} width={7 * cellSize} height={7 * cellSize} fill="#0f172a" rx={cellSize} />
-        <rect x={15 * cellSize} y={cellSize} width={5 * cellSize} height={5 * cellSize} fill="white" rx={cellSize * 0.5} />
-        <rect x={16 * cellSize} y={2 * cellSize} width={3 * cellSize} height={3 * cellSize} fill="#0f172a" rx={cellSize * 0.5} />
-
-        <rect x={0} y={14 * cellSize} width={7 * cellSize} height={7 * cellSize} fill="#0f172a" rx={cellSize} />
-        <rect x={cellSize} y={15 * cellSize} width={5 * cellSize} height={5 * cellSize} fill="white" rx={cellSize * 0.5} />
-        <rect x={2 * cellSize} y={16 * cellSize} width={3 * cellSize} height={3 * cellSize} fill="#0f172a" rx={cellSize * 0.5} />
-
-        <rect x={14 * cellSize} y={14 * cellSize} width={5 * cellSize} height={5 * cellSize} fill="#0f172a" rx={cellSize * 0.5} />
-        <rect x={15 * cellSize} y={15 * cellSize} width={3 * cellSize} height={3 * cellSize} fill="white" rx={cellSize * 0.3} />
-        <rect x={16 * cellSize} y={16 * cellSize} width={1 * cellSize} height={1 * cellSize} fill="#0f172a" rx={cellSize * 0.2} />
-
-        {[7, 9, 11, 13].map(i => (
-          <rect key={`th-${i}`} x={i * cellSize} y={6 * cellSize} width={cellSize} height={cellSize} fill="#0f172a" />
-        ))}
-        {[7, 9, 11, 13].map(i => (
-          <rect key={`tv-${i}`} x={6 * cellSize} y={i * cellSize} width={cellSize} height={cellSize} fill="#0f172a" />
-        ))}
-
-        {cells.map(([r, c], i) => (
-          <rect key={`cell-${i}`} x={c * cellSize + 0.5} y={r * cellSize + 0.5} width={cellSize - 0.8} height={cellSize - 0.8} fill="#0f172a" rx={1} />
-        ))}
-      </svg>
-    );
   }
-
+  const cornerBlocks = [
+    ...[[0,0],[0,1],[0,2],[1,0],[2,0],[2,1],[2,2],[1,2],[0,0]],
+    ...[[0,10],[0,11],[0,12],[1,10],[2,10],[2,11],[2,12],[1,12]],
+    ...[[10,0],[11,0],[12,0],[10,1],[10,2],[11,2],[12,1],[12,2]],
+  ];
+  const cs = size / 13;
   return (
-    <div style={{ width: size, height: size, position: "relative", borderRadius: 12, overflow: "hidden", background: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      {!imgLoaded && (
-        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "#f8fafc" }}>
-          <div style={{ width: 24, height: 24, borderRadius: "50%", border: "2.5px solid #3b82f6", borderTopColor: "transparent", animation: "spin 1s linear infinite" }} />
-        </div>
-      )}
-      <img
-        src={qrApiUrl}
-        alt={`QR Code ${code}`}
-        onLoad={() => setImgLoaded(true)}
-        onError={() => setImgError(true)}
-        style={{
-          width: "100%",
-          height: "100%",
-          objectFit: "contain",
-          display: "block",
-          opacity: imgLoaded ? 1 : 0,
-          transition: "opacity 0.2s ease"
-        }}
-      />
-      {/* AUDITORIUM PROJECTOR MODAL */}
-      <ProjectorModal
-        isOpen={showProjector}
-        onClose={() => setShowProjector(false)}
-        sessionId={activeSession?.id}
-        courseCode={activeSession?.course}
-        courseName={activeSession?.courseName}
-        rotatingToken={rotatingToken}
-        rotatingSecs={rotatingSecs}
-        totalWindow={90}
-        sessionCountdown={sessionCountdown}
-      />
-    </div>
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <rect width={size} height={size} fill="white" rx="8"/>
+      {cells.map(([r, c], i) => (
+        <rect key={i} x={c * cs + 1} y={r * cs + 1} width={cs - 2} height={cs - 2} rx="2" fill="#0f172a"/>
+      ))}
+      {cornerBlocks.map(([r, c], i) => (
+        <rect key={"cb" + i} x={c * cs + 1} y={r * cs + 1} width={cs - 2} height={cs - 2} rx="2" fill="#0f172a"/>
+      ))}
+      {/* Inner white squares for corner markers */}
+      <rect x={cs + 2} y={cs + 2} width={cs - 4} height={cs - 4} rx="1" fill="white"/>
+      <rect x={10 * cs + 2} y={cs + 2} width={cs - 4} height={cs - 4} rx="1" fill="white"/>
+      <rect x={cs + 2} y={10 * cs + 2} width={cs - 4} height={cs - 4} rx="1" fill="white"/>
+    </svg>
   );
 }
 
@@ -182,166 +110,26 @@ function Avatar({ initials, idx = 0, size = 36 }) {
   );
 }
 
-// ─── PDF EXPORT HELPER ────────────────────────────────────────────────────────
-
-function downloadSessionPDF(session) {
-  const printWindow = window.open('', '_blank');
-  if (!printWindow) {
-    alert("Please allow popups to download the attendance PDF report.");
-    return;
-  }
-
-  const studentsList = session.students || [];
-
-  const htmlContent = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>INFOCTESS Attendance Report - ${session.id || session.session_code}</title>
-      <style>
-        body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; color: #0f172a; line-height: 1.5; }
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #2563eb; padding-bottom: 16px; margin-bottom: 24px; }
-        .title { font-size: 26px; font-weight: 800; color: #1e3a5f; margin: 0; }
-        .subtitle { font-size: 13px; color: #64748b; margin-top: 4px; font-weight: 600; }
-        .meta-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; background: #f8fafc; padding: 18px; border-radius: 10px; margin-bottom: 28px; border: 1px solid #e2e8f0; }
-        .meta-item { font-size: 12px; }
-        .meta-label { color: #64748b; font-weight: 700; text-transform: uppercase; font-size: 11px; margin-bottom: 4px; }
-        .meta-val { font-size: 15px; font-weight: 800; color: #0f172a; }
-        table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-        th { background: #1e3a5f; color: white; text-align: left; padding: 12px 16px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
-        td { padding: 12px 16px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #334155; }
-        tr:nth-child(even) { background: #f8fafc; }
-        .badge-present { background: #dcfce7; color: #15803d; padding: 4px 10px; border-radius: 20px; font-weight: 700; font-size: 11px; display: inline-block; }
-        .footer { margin-top: 50px; font-size: 11px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 20px; }
-      </style>
-    </head>
-    <body>
-      <div class="header">
-        <div>
-          <div class="title">🎓 INFOCTESS UEW</div>
-          <div class="subtitle">Department of ICT Education — Official Attendance Sheet</div>
-        </div>
-        <div style="text-align: right;">
-          <div style="font-size: 20px; font-weight: 900; color: #2563eb;">${session.id || session.session_code}</div>
-          <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Date: ${session.date || new Date().toLocaleDateString()}</div>
-        </div>
-      </div>
-
-      <div class="meta-grid">
-        <div class="meta-item">
-          <div class="meta-label">Course Code</div>
-          <div class="meta-val">${session.courseCode || session.course || 'ICTE'}</div>
-        </div>
-        <div class="meta-item">
-          <div class="meta-label">Course Name</div>
-          <div class="meta-val">${session.courseName || 'Multimedia Authoring'}</div>
-        </div>
-        <div class="meta-item">
-          <div class="meta-label">Session Status</div>
-          <div class="meta-val" style="color: #16a34a;">${(session.status || 'ACTIVE').toUpperCase()}</div>
-        </div>
-        <div class="meta-item">
-          <div class="meta-label">Total Verified Present</div>
-          <div class="meta-val" style="color: #2563eb;">${studentsList.length} Students</div>
-        </div>
-      </div>
-
-      <h3 style="font-size: 16px; color: #0f172a; margin-bottom: 8px;">Checked-In Students Roster</h3>
-      <table>
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Student Name</th>
-            <th>Index Number</th>
-            <th>Check-in Time</th>
-            <th>Check-in Method</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${studentsList.length > 0 ? studentsList.map((st, idx) => `
-            <tr>
-              <td>${idx + 1}</td>
-              <td style="font-weight: 700; color: #0f172a;">${st.name}</td>
-              <td>${st.index}</td>
-              <td>${st.time || 'N/A'}</td>
-              <td>${st.method || 'Session Code'}</td>
-              <td><span class="badge-present">PRESENT</span></td>
-            </tr>
-          `).join('') : `
-            <tr>
-              <td colspan="6" style="text-align: center; color: #94a3b8; padding: 24px;">No student check-ins recorded for this session.</td>
-            </tr>
-          `}
-        </tbody>
-      </table>
-
-      <div class="footer">
-        Generated on ${new Date().toLocaleString()} · INFOCTESS Smart Attendance Management System · UEW
-      </div>
-
-      <script>
-        window.onload = function() {
-          setTimeout(function() {
-            window.print();
-          }, 300);
-        };
-      </script>
-    </body>
-    </html>
-  `;
-
-  printWindow.document.write(htmlContent);
-  printWindow.document.close();
-}
-
-// ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
+// ─── MAIN ────────────────────────────────────────────────────────────────────
 
 export default function CourseRepDashboard() {
-  // ROLE GUARD: Only Course Reps admitted
-  useEffect(() => {
-    try {
-      const stored = sessionStorage.getItem("web_user");
-      if (!stored) {
-        navigate("/portal");
-        return;
-      }
-      const user = JSON.parse(stored);
-      const role = (user.role || "").toLowerCase();
-      if (role !== "rep") {
-        if (role === "lecturer") navigate("/lec");
-        else if (role === "student") navigate("/student");
-        else navigate("/portal");
-      }
-    } catch (e) {
-      navigate("/portal");
-    }
-  }, [navigate]);
-
-
   const navigate = useNavigate();
   const [tab, setTab]             = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [sessions, setSessions]   = useState(INITIAL_SESSIONS);
-  const [courses, setCourses]     = useState(MY_COURSES);
-  const [selectedCourse, setSelectedCourse] = useState(MY_COURSES[0].code);
+  const [sessions, setSessions]   = useState([]);
+  const [courses, setCourses]     = useState([]);
+  const [selectedCourse, setSelectedCourse] = useState("");
   const [timeWindow, setTimeWindow] = useState("10");
   const [loading, setLoading]     = useState(true);
 
   // Rep user details
-  const [repName, setRepName]     = useState("Course Representative");
+  const [repName, setRepName]     = useState("Course Rep");
   const [repEmail, setRepEmail]   = useState("");
 
   // Active session state
-  const [activeSession, setActiveSession] = useState(null);
+  const [activeSession, setActiveSession] = useState(null); // {id, course, courseName, checkins, students, countdown}
   const [showModal, setShowModal]  = useState(false);
-  const [newCheckin, setNewCheckin] = useState(null);
-  const [rotatingToken, setRotatingToken] = useState('');
-  const [rotatingSecs, setRotatingSecs] = useState(30);
-  const [allowedRadius, setAllowedRadius] = useState(50);
-  const [showConfigModal, setShowConfigModal] = useState(false);
-  const [showProjector, setShowProjector] = useState(false);
-  const [sessionCountdown, setSessionCountdown] = useState(0);
+  const [newCheckin, setNewCheckin] = useState(null); // triggers animation
 
   // Delete confirm
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -351,66 +139,125 @@ export default function CourseRepDashboard() {
   const [checkedInStudents, setCheckedInStudents] = useState([]);
   const [loadingStudents, setLoadingStudents] = useState(false);
 
-  const timerRef = useRef(null);
+  const timerRef    = useRef(null);
 
   const getInitials = (name) => {
-    return name ? name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() : "CR";
+    return name ? name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() : "ST";
   };
 
-  const fetchSessions = useCallback(async () => {
+  const walkInRef = useRef(null);
+  const walkInUsed = useRef([]);
+
+  // Fetch initial configuration & active rep details
+  useEffect(() => {
+    const userStr = sessionStorage.getItem("web_user");
+    if (userStr) {
+      try {
+        const u = JSON.parse(userStr);
+        setRepName(u.first_name || "Representative");
+        setRepEmail(u.index_number || "");
+      } catch (e) {
+        console.error("Error parsing web_user:", e);
+      }
+    }
+
+    async function initializeRepDashboard() {
+      setLoading(true);
+      try {
+        // 1. Fetch courses
+        const res = await request("/api/courses/");
+        const json = await res.json();
+        if (json.success && json.data.length > 0) {
+          setCourses(json.data);
+          setSelectedCourse(json.data[0].code);
+        } else {
+          setCourses(MY_COURSES);
+          setSelectedCourse(MY_COURSES[0].code);
+        }
+
+        // 2. Fetch sessions
+        await fetchSessions();
+      } catch (err) {
+        console.error("Error initializing Rep Dashboard:", err);
+        setCourses(MY_COURSES);
+        setSelectedCourse(MY_COURSES[0].code);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    initializeRepDashboard();
+  }, []);
+
+  // Fetch students checked in across all sessions when "students" tab is selected
+  useEffect(() => {
+    if (tab === "students") {
+      fetchCheckedInStudents();
+    }
+  }, [tab]);
+
+  async function fetchSessions() {
     try {
       const res = await request("/api/sessions/");
       const json = await res.json();
 
-      if (json.success && Array.isArray(json.data)) {
+      if (json.success) {
         const formattedSessions = json.data.map(s => ({
-          id: s.id || s.session_code,
-          course: s.courseCode || (s.course && typeof s.course === "object" ? s.course.code : "ICTE"),
-          courseName: s.courseName || (s.course && typeof s.course === "object" ? s.course.name : "Attendance Session"),
-          date: s.date || new Date().toLocaleDateString(),
-          timeWindow: s.timeWindow || s.time_window || 10,
-          status: s.status || "active",
-          checkins: typeof s.checkins === "number" ? s.checkins : (s.students ? s.students.length : 0),
-          students: s.students || []
+          id: s.id,
+          course: s.course.code,
+          courseName: s.course.name,
+          date: new Date(s.opened_at).toLocaleDateString(),
+          timeWindow: s.time_window,
+          status: s.status,
+          checkins: s.checkin_count,
+          students: []
         }));
 
         setSessions(formattedSessions);
 
+        // Check if there is an active session
         const active = json.data.find(s => s.status === "active");
         if (active) {
-          const activeId = active.id || active.session_code;
-          const resDet = await request(`/api/sessions/${activeId}/`);
+          // Fetch checked in students for the active session
+          const resDet = await request(`/api/sessions/${active.id}/`);
           const jsonDet = await resDet.json();
           let studentsList = [];
-
-          if (jsonDet.success && jsonDet.data) {
-            const dataObj = jsonDet.data;
-            if (Array.isArray(dataObj.students)) {
-              studentsList = dataObj.students;
-            } else if (Array.isArray(dataObj.records)) {
-              studentsList = dataObj.records.map(c => ({
-                name: c.student ? `${c.student.first_name} ${c.student.last_name}` : (c.name || "Student"),
-                index: c.student ? c.student.index_number : (c.index || ""),
-                method: c.method === "qr_code" ? "QR Code" : "Session Code",
-                time: c.checked_in_at ? new Date(c.checked_in_at).toLocaleTimeString() : (c.time || "Just now"),
-                avatar: getInitials(c.student ? `${c.student.first_name} ${c.student.last_name}` : (c.name || "ST"))
-              }));
-            }
+          if (jsonDet.success) {
+            studentsList = jsonDet.data.records.map(c => ({
+              name: c.student.first_name + " " + c.student.last_name,
+              index: c.student.index_number,
+              method: c.method === "qr_code" ? "QR Code" : "Session Code",
+              time: new Date(c.checked_in_at).toLocaleTimeString(),
+              avatar: getInitials(c.student.first_name + " " + c.student.last_name)
+            }));
           }
 
-          setActiveSession({
-            id: activeId,
-            course: active.courseCode || (active.course && typeof active.course === "object" ? active.course.code : "ICTE"),
-            courseName: active.courseName || (active.course && typeof active.course === "object" ? active.course.name : "Attendance Session"),
-            date: active.date || new Date().toLocaleDateString(),
-            checkins: studentsList.length,
-            status: active.status,
-            timeWindow: active.timeWindow || active.time_window || 10,
-            students: studentsList,
-            countdown: (active.timeWindow || 10) * 60
-          });
-          setSessionCountdown((active.timeWindow || 10) * 60);
-          setShowModal(true);
+          // Calculate countdown
+          const createdAt = new Date(active.opened_at);
+          const durationSecs = active.time_window * 60;
+          const elapsedSecs = Math.floor((Date.now() - createdAt.getTime()) / 1000);
+          const remaining = Math.max(0, durationSecs - elapsedSecs);
+
+          if (remaining <= 0) {
+            // Auto-close expired session
+            await request(`/api/sessions/${active.id}/close/`, { method: "POST" });
+            fetchSessions();
+          } else {
+            setActiveSession({
+              id: active.id,
+              course: active.course.code,
+              courseName: active.course.name,
+              date: new Date(active.opened_at).toLocaleDateString(),
+              checkins: studentsList.length,
+              status: active.status,
+              timeWindow: active.time_window,
+              students: studentsList,
+              countdown: remaining
+            });
+            setShowModal(true);
+            startCountdown(active, remaining);
+            scheduleWalkIns(active);
+          }
         } else {
           setActiveSession(null);
         }
@@ -418,14 +265,15 @@ export default function CourseRepDashboard() {
     } catch (err) {
       console.error("Error fetching sessions:", err);
     }
-  }, []);
+  };
 
-  const fetchCheckedInStudents = useCallback(async () => {
+  async function fetchCheckedInStudents() {
     setLoadingStudents(true);
     try {
+      // Load all students breakdown for general info
       const res = await request("/api/reports/breakdown/");
       const json = await res.json();
-      if (json.success && Array.isArray(json.data)) {
+      if (json.success) {
         const mapped = json.data.map(s => ({
           name: s.name,
           index: s.index,
@@ -437,638 +285,838 @@ export default function CourseRepDashboard() {
         setCheckedInStudents(mapped);
       }
     } catch (err) {
-      console.error("Error fetching student breakdown:", err);
+      console.error("Error fetching student attendance details:", err);
     } finally {
       setLoadingStudents(false);
     }
-  }, []);
-
-  const refreshSessions = useCallback(() => {
-    fetchSessions();
-    if (tab === "students") {
-      fetchCheckedInStudents();
-    }
-  }, [tab, fetchSessions, fetchCheckedInStudents]);
-
-  useEffect(() => {
-    const raw = sessionStorage.getItem("web_user");
-    if (!raw) {
-      navigate("/login", { replace: true });
-      return;
-    }
-
-    try {
-      const u = JSON.parse(raw);
-      setRepName(`${u.first_name || "Course"} ${u.last_name || "Rep"}`);
-      setRepEmail(u.email || "");
-    } catch (e) {
-      console.error(e);
-    }
-
-    async function init() {
-      setLoading(true);
-      try {
-        const res = await request("/api/courses/");
-        if (res.status === 401) {
-          sessionStorage.clear();
-          navigate("/login", { replace: true });
-          return;
-        }
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
-          setCourses(json.data);
-          setSelectedCourse(json.data[0].code);
-        }
-        await fetchSessions();
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    init();
-  }, [fetchSessions, navigate]);
-
-  useEffect(() => {
-    if (tab === "students") {
-      fetchCheckedInStudents();
-    }
-  }, [tab, fetchCheckedInStudents]);
-
-  // ── SESSION DURATION COUNTDOWN TIMER ──
-  useEffect(() => {
-    if (!activeSession || sessionCountdown <= 0) return;
-    const durTimer = setInterval(() => {
-      setSessionCountdown(c => (c > 1 ? c - 1 : 0));
-    }, 1000);
-    return () => clearInterval(durTimer);
-  }, [activeSession, sessionCountdown]);
-
-  // ── 90-SECOND ROTATING SESSION CODE TIMER ──
-  useEffect(() => {
-    if (!activeSession) return;
-    const updateRotation = () => {
-      const state = getRotatingSessionState(activeSession.id);
-      setRotatingToken(state.token);
-      setRotatingSecs(state.secondsLeft);
-    };
-    updateRotation();
-    const rotInterval = setInterval(updateRotation, 500);
-    return () => clearInterval(rotInterval);
-  }, [activeSession]);
-
-  // ── REAL-TIME BACKGROUND SYNC (Every 1.5s for instant feedback across devices) ──
-  useEffect(() => {
-    const pollInterval = setInterval(() => {
-      fetchSessions();
-      if (tab === "students") {
-        fetchCheckedInStudents();
-      }
-    }, 1500);
-
-    return () => clearInterval(pollInterval);
-  }, [fetchSessions, fetchCheckedInStudents, tab]);
-
-  const closeSession = async () => {
-    if (activeSession) {
-      try {
-        await request(`/api/sessions/${activeSession.id}/close/`, { method: "POST" });
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    setActiveSession(null);
-    setShowModal(false);
-    fetchSessions();
   };
 
+  // ── Open a new session ──
   const openSession = async () => {
-    if (!selectedCourse) return;
+    const courseObj = courses.find(c => c.code === selectedCourse);
+    const secs = parseInt(timeWindow) * 60;
+
     try {
       const res = await request("/api/sessions/create/", {
         method: "POST",
         body: JSON.stringify({
           course_id: selectedCourse,
-          time_window: parseInt(timeWindow),
-          allowed_radius: parseInt(allowedRadius)
+          time_window: timeWindow
         })
       });
       const json = await res.json();
+
       if (json.success) {
-        setActiveSession({
+        const sess = {
           id: json.data.id,
           course: selectedCourse,
-          courseName: courses.find(c => c.code === selectedCourse)?.name || selectedCourse,
+          courseName: courseObj ? courseObj.name : "Course Session",
           date: new Date().toLocaleDateString(),
           checkins: 0,
           status: "active",
           timeWindow: parseInt(timeWindow),
           students: [],
-          countdown: parseInt(timeWindow) * 60
-        });
-        setSessionCountdown(parseInt(timeWindow) * 60);
+          countdown: secs,
+        };
+
+        setActiveSession(sess);
         setShowModal(true);
-        fetchSessions();
+        startCountdown(sess, secs);
+        scheduleWalkIns(sess);
       } else {
         alert(json.message || "Failed to create session");
       }
-    } catch (e) {
-      alert("Failed to create session: " + e.message);
+    } catch (err) {
+      alert("Failed to create session: " + err.message);
     }
   };
 
-  const fmtTime = (s) => {
-    const m = Math.floor(s / 60);
-    const sec = s % 60;
-    return `${m}:${sec < 10 ? "0" : ""}${sec}`;
+  function startCountdown(sess, secs) {
+    clearInterval(timerRef.current);
+    let remaining = secs;
+    timerRef.current = setInterval(() => {
+      remaining--;
+      setActiveSession(prev => prev ? { ...prev, countdown: remaining } : null);
+      if (remaining <= 0) {
+        clearInterval(timerRef.current);
+        clearInterval(walkInRef.current);
+        closeSession();
+      }
+    }, 1000);
+  }
+
+  // Simulate random walk-ins every 4-9 seconds checking in to the real backend database!
+  function scheduleWalkIns(sess) {
+    clearInterval(walkInRef.current);
+    walkInRef.current = setInterval(async () => {
+      const remaining = WALK_IN_POOL.filter(
+        s => !walkInUsed.current.includes(s.index)
+      );
+      if (remaining.length === 0) { clearInterval(walkInRef.current); return; }
+      const student = remaining[Math.floor(Math.random() * remaining.length)];
+      walkInUsed.current.push(student.index);
+      
+      try {
+        const res = await request("/api/checkin/", {
+          method: "POST",
+          body: JSON.stringify({
+            session_code: sess.id,
+            index_number: student.index,
+            method: "qr_code",
+            device_id: student.device_id || `dev-${student.index}`,
+            device_name: student.device_name || "Simulated Phone"
+          })
+        });
+        const json = await res.json();
+        
+        if (json.success) {
+          const entry = {
+            ...student,
+            time: json.data.time,
+            method: json.data.method,
+            isNew: true,
+          };
+          setActiveSession(prev => {
+            if (!prev) return null;
+            return { ...prev, checkins: prev.checkins + 1, students: [entry, ...prev.students] };
+          });
+          setNewCheckin(entry.index);
+          setTimeout(() => setNewCheckin(null), 2000);
+        }
+      } catch (err) {
+        console.error("Check-in error:", err);
+      }
+    }, 4000 + Math.random() * 5000);
   };
 
-  const totalCheckins = sessions.reduce((acc, s) => acc + (s.checkins || 0), 0);
+  async function closeSession() {
+    clearInterval(timerRef.current);
+    clearInterval(walkInRef.current);
+    
+    if (activeSession) {
+      try {
+        await request(`/api/sessions/${activeSession.id}/close/`, {
+          method: "POST"
+        });
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    
+    setActiveSession(null);
+    setShowModal(false);
+    refreshSessions();
+  }
+
+  function refreshSessions() {
+    fetchSessions();
+    if (tab === "students") {
+      fetchCheckedInStudents();
+    }
+  }
+
+  useEffect(() => () => { clearInterval(timerRef.current); clearInterval(walkInRef.current); }, []);
+
+  const fmtTime = s => {
+    const m = Math.floor(s / 60), sec = s % 60;
+    return `${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
+  };
+
+  const pctFull = s => s > 0 ? Math.round((s / (parseInt(timeWindow)*60)) * 100) : 100;
+
+  // ── Delete session ──
+  const confirmDelete = (id) => setDeleteTarget(id);
+  const doDelete = async () => {
+    if (deleteTarget) {
+      try {
+        const res = await request(`/api/sessions/${deleteTarget}/`, {
+          method: "DELETE"
+        });
+        const json = await res.json();
+        if (json.success) {
+          setSessions(s => s.filter(x => x.id !== deleteTarget));
+        }
+      } catch (err) {
+        console.error(err);
+        setSessions(s => s.filter(x => x.id !== deleteTarget));
+      }
+    }
+    setDeleteTarget(null);
+  };
+
+  // Filter students checked in across all sessions
+  const allStudents = checkedInStudents.filter(s =>
+    studentSearch === "" ||
+    s.name.toLowerCase().includes(studentSearch.toLowerCase()) ||
+    s.index.includes(studentSearch)
+  );
+
+  const recentThree = sessions.slice(0, 3);
+
+  // ─── SIDEBAR ─────────────────────────────────────────────────────────────
+
+  const navLinks = [
+    { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { key: "sessions",  label: "Sessions",  icon: QrCode },
+    { key: "students",  label: "Students",  icon: Users },
+  ];
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f8fafc", fontFamily: "'Inter','Segoe UI',sans-serif", display: "flex" }}>
+    <div style={{ display:"flex", minHeight:"100vh", fontFamily:"'DM Sans','Segoe UI',sans-serif", background:"#f1f5f9" }}>
+
       {/* ── SIDEBAR ── */}
       <aside style={{
-        width: sidebarOpen ? 260 : 72, background: "#0f172a", color: "white",
-        transition: "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)", flexShrink: 0,
-        display: "flex", flexDirection: "column", zIndex: 50
+        width: sidebarOpen ? 210 : 64, minHeight:"100vh",
+        background:"#0f172a", display:"flex", flexDirection:"column",
+        transition:"width 0.3s ease", overflow:"hidden", flexShrink:0, zIndex:10
       }}>
-        <div style={{ padding: "20px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #1e293b" }}>
+        <div style={{
+          padding: sidebarOpen ? "24px 20px 16px" : "24px 12px 16px",
+          display:"flex", alignItems:"center", gap:10,
+          borderBottom:"1px solid #1e293b"
+        }}>
+          <div style={{
+            width:36, height:36, borderRadius:10, flexShrink:0,
+            background:"linear-gradient(135deg,#3b82f6,#1d4ed8)",
+            display:"flex", alignItems:"center", justifyContent:"center"
+          }}>
+            <GraduationCap size={20} color="white"/>
+          </div>
           {sidebarOpen && (
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ width: 34, height: 34, borderRadius: 8, background: "linear-gradient(135deg,#2563eb,#3b82f6)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <QrCode size={18} color="white" />
-              </div>
-              <div>
-                <div style={{ fontWeight: 800, fontSize: 14, letterSpacing: 0.5 }}>INFOTESS</div>
-                <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 600 }}>REP PORTAL</div>
-              </div>
+            <div>
+              <div style={{ color:"#f1f5f9", fontWeight:700, fontSize:15 }}>INFOCTESS</div>
+              <div style={{ fontSize:10, color:"#64748b" }}>Class Register</div>
             </div>
           )}
-          <button onClick={() => setSidebarOpen(v => !v)} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", padding: 4 }}>
-            {sidebarOpen ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
-          </button>
         </div>
 
-        <nav style={{ padding: "16px 8px", flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
-          {[
-            { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-            { id: "projection", label: "Session Projector", icon: Maximize2 },
-            { id: "sessions", label: "Sessions", icon: QrCode },
-            { id: "students", label: "Students Roster", icon: Users },
-          ].map(item => {
-            const Icon = item.icon;
-            const active = tab === item.id;
-            return (
-              <button key={item.id} onClick={() => setTab(item.id)} style={{
-                display: "flex", alignItems: "center", gap: 12, width: "100%",
-                padding: "10px 14px", borderRadius: 8, border: "none",
-                background: active ? "linear-gradient(135deg,#1d4ed8,#2563eb)" : "transparent",
-                color: active ? "white" : "#94a3b8", fontWeight: active ? 600 : 500, fontSize: 13,
-                cursor: "pointer", textAlign: "left"
-              }}>
-                <Icon size={18} />
-                {sidebarOpen && <span>{item.label}</span>}
-              </button>
-            );
-          })}
+        <nav style={{ padding:"16px 8px", flex:1 }}>
+          <div style={{ fontSize:10, fontWeight:700, letterSpacing:"1px", color:"#475569",
+            padding: sidebarOpen ? "0 12px 8px" : "0 0 8px",
+            textAlign: sidebarOpen ? "left" : "center" }}>
+            {sidebarOpen ? "NAVIGATION" : "·"}
+          </div>
+          {navLinks.map(({ key, label, icon: Icon }) => (
+            <div key={key} onClick={() => setTab(key)} style={{
+              display:"flex", alignItems:"center", gap:12,
+              padding: sidebarOpen ? "10px 12px" : "10px 0",
+              justifyContent: sidebarOpen ? "flex-start" : "center",
+              borderRadius:10, marginBottom:4, cursor:"pointer",
+              background: tab === key ? "#1e3a5f" : "transparent",
+              color: tab === key ? "#60a5fa" : "#94a3b8",
+              transition:"all 0.2s"
+            }}>
+              <Icon size={18} style={{ flexShrink:0 }}/>
+              {sidebarOpen && <span style={{ fontSize:14, fontWeight: tab===key ? 600 : 400 }}>{label}</span>}
+            </div>
+          ))}
         </nav>
 
-        <div style={{ padding: 16, borderTop: "1px solid #1e293b" }}>
-          {sidebarOpen ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <Avatar initials={getInitials(repName)} size={36} />
-              <div style={{ flex: 1, overflow: "hidden" }}>
-                <div style={{ fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>{repName}</div>
-                <div style={{ fontSize: 11, color: "#64748b", whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>{repEmail}</div>
-              </div>
-              <button onClick={() => { sessionStorage.clear(); navigate("/login"); }} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", padding: 4 }}>
-                <LogOut size={16} />
-              </button>
+        <div style={{ borderTop:"1px solid #1e293b", padding: sidebarOpen ? "16px 20px" : "16px 8px" }}>
+          {sidebarOpen && (
+            <div style={{ marginBottom:12 }}>
+              <div style={{ color:"#e2e8f0", fontWeight:600, fontSize:14 }}>{repName}</div>
+              <div style={{ color:"#64748b", fontSize:12 }}>Course Rep</div>
             </div>
-          ) : (
-            <button onClick={() => { sessionStorage.clear(); navigate("/login"); }} style={{ width: "100%", background: "none", border: "none", color: "#ef4444", cursor: "pointer", display: "flex", justifyContent: "center" }}>
-              <LogOut size={18} />
-            </button>
           )}
+          <div onClick={() => { sessionStorage.clear(); navigate("/login"); }} style={{ display:"flex", alignItems:"center", gap:8, color:"#64748b",
+            cursor:"pointer", fontSize:13, justifyContent: sidebarOpen ? "flex-start" : "center" }}>
+            <LogOut size={16}/>{sidebarOpen && "Sign Out"}
+          </div>
         </div>
       </aside>
 
-      {/* ── MAIN CONTENT ── */}
-      <main style={{ flex: 1, overflowY: "auto", padding: 32 }}>
-        <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28 }}>
-          <div>
-            <h1 style={{ fontSize: 24, fontWeight: 800, color: "#0f172a", margin: "0 0 4px" }}>Course Representative Portal</h1>
-            <p style={{ fontSize: 13, color: "#64748b", margin: 0 }}>Create and manage live attendance check-in sessions for your group.</p>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <button onClick={() => setShowConfigModal(true)} style={{
-              display: "flex", alignItems: "center", gap: 6, padding: "10px 16px",
-              borderRadius: 10, background: "#f1f5f9", color: "#334155",
-              border: "1px solid #cbd5e1", fontWeight: 700, fontSize: 13, cursor: "pointer"
-            }}>
-              ⚙️ Session Settings ({timeWindow}m • {allowedRadius}m)
-            </button>
-            <button onClick={openSession} style={{
-              display: "flex", alignItems: "center", gap: 8, padding: "10px 20px",
-              borderRadius: 10, background: "linear-gradient(135deg,#1d4ed8,#2563eb)",
-              color: "white", border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer",
-              boxShadow: "0 4px 12px rgba(37,99,235,0.25)"
-            }}>
-              <Plus size={16} /> Open QR Session
-            </button>
+      {/* ── MAIN ── */}
+      <div style={{ flex:1, display:"flex", flexDirection:"column", minWidth:0 }}>
+
+        {/* Topbar */}
+        <header style={{
+          height:56, background:"white", borderBottom:"1px solid #e2e8f0",
+          display:"flex", alignItems:"center", justifyContent:"space-between",
+          padding:"0 28px"
+        }}>
+          <button onClick={() => setSidebarOpen(o => !o)} style={{
+            background:"none", border:"none", cursor:"pointer", color:"#64748b", padding:4
+          }}>
+            {sidebarOpen ? <PanelLeftClose size={20}/> : <PanelLeftOpen size={20}/>}
+          </button>
+          <div style={{ display:"flex", alignItems:"center", gap:16 }}>
+            {activeSession && (
+              <div style={{
+                display:"flex", alignItems:"center", gap:8,
+                background:"#dcfce7", color:"#166534",
+                padding:"6px 14px", borderRadius:40, fontSize:12, fontWeight:700
+              }}>
+                <div style={{ width:7, height:7, borderRadius:"50%", background:"#16a34a",
+                  animation:"pulse 1.5s ease-in-out infinite" }}/>
+                Live: {activeSession.id}
+              </div>
+            )}
+            <span style={{ fontSize:13, fontWeight:600, color:"#334155" }}>{repName}</span>
           </div>
         </header>
 
-        {/* SUMMARY CARDS */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, marginBottom: 28 }}>
-          {[
-            { label: "Total Sessions", val: sessions.length, icon: QrCode, color: "#3b82f6", bg: "#eff6ff" },
-            { label: "Total Check-ins", val: totalCheckins, icon: CheckCircle, color: "#10b981", bg: "#ecfdf5" },
-            { label: "Active Courses", val: courses.length, icon: GraduationCap, color: "#8b5cf6", bg: "#f5f3ff" },
-          ].map(card => {
-            const Icon = card.icon;
-            return (
-              <div key={card.label} style={{ background: "white", padding: 20, borderRadius: 14, border: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: 16 }}>
-                <div style={{ width: 44, height: 44, borderRadius: 12, background: card.bg, color: card.color, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <Icon size={22} />
-                </div>
-                <div>
-                  <div style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>{card.label}</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: "#0f172a" }}>{card.val}</div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <main style={{ flex:1, padding:"28px 32px", overflowY:"auto" }}>
 
-        {/* TAB CONTENT */}
-        {tab === "dashboard" && (
-          <div style={{ background: "white", borderRadius: 16, border: "1px solid #e2e8f0", padding: 24 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 16px", color: "#0f172a" }}>Recent Attendance Sessions</h3>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead>
-                <tr style={{ background: "#f8fafc", textAlign: "left" }}>
-                  {["Session ID", "Course", "Date", "Check-ins", "Status"].map(h => (
-                    <th key={h} style={{ padding: "12px 16px", color: "#64748b", fontWeight: 600, borderBottom: "1px solid #e2e8f0" }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {sessions.map(s => (
-                  <tr key={s.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                    <td style={{ padding: "12px 16px", fontWeight: 700, color: "#1e293b" }}>{s.id}</td>
-                    <td style={{ padding: "12px 16px" }}>{s.course} — {s.courseName}</td>
-                    <td style={{ padding: "12px 16px", color: "#64748b" }}>{s.date}</td>
-                    <td style={{ padding: "12px 16px", fontWeight: 700 }}>{s.checkins}</td>
-                    <td style={{ padding: "12px 16px" }}>
-                      <span style={{
-                        padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700,
-                        background: s.status === "active" ? "#dcfce7" : "#f1f5f9",
-                        color: s.status === "active" ? "#15803d" : "#64748b"
-                      }}>
-                        {s.status.toUpperCase()}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {tab === "projection" && (
-        <div style={{ background: "white", borderRadius: 20, padding: 32, border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, borderBottom: "1px solid #f1f5f9", paddingBottom: 16 }}>
-            <div>
-              <h2 style={{ fontSize: 20, fontWeight: 800, color: "#0f172a", margin: 0 }}>Classroom Projector Mode</h2>
-              <p style={{ fontSize: 13, color: "#64748b", margin: "4px 0 0" }}>Project high-contrast QR code and unguessable 90s passcode to students</p>
-            </div>
-            {activeSession && (
-              <button
-                onClick={() => setShowProjector(true)}
-                style={{
-                  padding: "10px 20px", borderRadius: 10, background: "linear-gradient(135deg, #1E5A87, #0A3A4F)",
-                  color: "white", border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer",
-                  display: "flex", alignItems: "center", gap: 8
-                }}
-              >
-                <Maximize2 size={16} /> Open Fullscreen Projector
-              </button>
-            )}
-          </div>
-
-          {activeSession ? (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "20px 0" }}>
-              <div style={{ fontSize: 16, fontWeight: 800, color: "#1E5A87", marginBottom: 6 }}>{activeSession.course} — {activeSession.courseName}</div>
-              <div style={{ fontSize: 13, color: "#64748b", marginBottom: 20 }}>Base Session ID: <strong>{activeSession.id}</strong></div>
-              <div style={{ padding: 20, background: "#f8fafc", borderRadius: 20, border: "2px solid #e2e8f0", marginBottom: 16 }}>
-                <QRVisual code={rotatingToken ? `ATT-${rotatingToken}` : activeSession.id} size={280} />
-              </div>
-              <div style={{ fontSize: 36, fontWeight: 900, letterSpacing: 4, color: "#1E5A87", fontFamily: "monospace", marginBottom: 8 }}>
-                {rotatingToken ? `ATT-${rotatingToken}` : (activeSession.id || "ATT-0000")}
-              </div>
-              <div style={{ fontSize: 12, color: "#64748b" }}>Refreshes in {rotatingSecs} seconds</div>
-            </div>
-          ) : (
-            <div style={{ textAlign: "center", padding: "60px 20px", color: "#94a3b8" }}>
-              <QrCode size={48} style={{ margin: "0 auto 12px", color: "#cbd5e1" }} />
-              <div style={{ fontSize: 16, fontWeight: 700, color: "#475569" }}>No Active Session Running</div>
-              <div style={{ fontSize: 13, marginTop: 4 }}>Go to the Dashboard and click <strong>Session Settings</strong> to launch an attendance session.</div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {tab === "students" && (
-          <div style={{ background: "white", borderRadius: 16, border: "1px solid #e2e8f0", padding: 24 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 16px", color: "#0f172a" }}>Student Attendance Roster</h3>
-            {loadingStudents ? (
-              <div style={{ padding: 40, textAlign: "center", color: "#94a3b8" }}>Loading student records...</div>
-            ) : (
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                <thead>
-                  <tr style={{ background: "#f8fafc", textAlign: "left" }}>
-                    {["Student Name", "Index Number", "Attended Sessions", "Attendance Status"].map(h => (
-                      <th key={h} style={{ padding: "12px 16px", color: "#64748b", fontWeight: 600, borderBottom: "1px solid #e2e8f0" }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {checkedInStudents.map((st, i) => (
-                    <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                      <td style={{ padding: "12px 16px", fontWeight: 600, color: "#0f172a", display: "flex", alignItems: "center", gap: 10 }}>
-                        <Avatar initials={st.avatar} idx={i} size={30} />
-                        {st.name}
-                      </td>
-                      <td style={{ padding: "12px 16px", color: "#64748b" }}>{st.index}</td>
-                      <td style={{ padding: "12px 16px", fontWeight: 700 }}>{st.sessions}</td>
-                      <td style={{ padding: "12px 16px", color: "#10b981", fontWeight: 600 }}>{st.time}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        )}
-      </main>
-
-            {/* SESSION PARAMETERS CONFIG MODAL (Duration up to 100m & Geofence Slider) */}
-      {showConfigModal && (
-        <div style={{
-          position: "fixed", inset: 0, background: "rgba(15,23,42,0.65)", backdropFilter: "blur(4px)",
-          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 110, padding: 20
-        }}>
-          <div style={{
-            background: "white", borderRadius: 20, padding: 28, width: 480, maxWidth: "95%",
-            boxShadow: "0 20px 40px rgba(0,0,0,0.2)", display: "flex", flexDirection: "column", gap: 20
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div>
-                <h3 style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", margin: 0 }}>Attendance Session Controls</h3>
-                <p style={{ fontSize: 12, color: "#64748b", margin: "4px 0 0" }}>Adjust duration and geofence radius for your lecture hall</p>
-              </div>
-              <button onClick={() => setShowConfigModal(false)} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#94a3b8" }}>✕</button>
-            </div>
-
-            {/* Course Selector */}
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 700, color: "#475569", display: "block", marginBottom: 6 }}>SELECT COURSE</label>
-              <select
-                value={selectedCourse}
-                onChange={e => setSelectedCourse(e.target.value)}
-                style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: 13, fontWeight: 600, color: "#0f172a" }}
-              >
-                {courses.map(c => <option key={c.code} value={c.code}>{c.code} — {c.name}</option>)}
-              </select>
-            </div>
-
-            {/* Duration Selector (Up to 100 mins) */}
-            <div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                <label style={{ fontSize: 12, fontWeight: 700, color: "#475569" }}>SESSION TIME DURATION (MAX 60 MINS)</label>
-                <span style={{ fontSize: 13, fontWeight: 800, color: "#2563eb" }}>{timeWindow} minutes</span>
-              </div>
-              <input
-                type="range"
-                min="5"
-                max="60"
-                step="5"
-                value={timeWindow}
-                onChange={e => setTimeWindow(e.target.value)}
-                style={{ width: "100%", cursor: "pointer", accentColor: "#2563eb" }}
-              />
-              <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
-                {[10, 15, 20, 30, 45, 60].map(mins => (
-                  <button
-                    key={mins}
-                    type="button"
-                    onClick={() => setTimeWindow(String(mins))}
-                    style={{
-                      padding: "4px 10px", borderRadius: 8, border: "1px solid #cbd5e1",
-                      background: String(timeWindow) === String(mins) ? "#2563eb" : "#f8fafc",
-                      color: String(timeWindow) === String(mins) ? "white" : "#475569",
-                      fontSize: 11, fontWeight: 700, cursor: "pointer"
-                    }}
-                  >
-                    {mins}m
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Geofencing Radius Slider */}
-            <div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                <label style={{ fontSize: 12, fontWeight: 700, color: "#475569" }}>GEOFENCE CLASSROOM RADIUS</label>
-                <span style={{ fontSize: 13, fontWeight: 800, color: "#16a34a" }}>{allowedRadius} meters</span>
-              </div>
-              <input
-                type="range"
-                min="10"
-                max="500"
-                step="10"
-                value={allowedRadius}
-                onChange={e => setAllowedRadius(parseInt(e.target.value))}
-                style={{ width: "100%", cursor: "pointer", accentColor: "#16a34a" }}
-              />
-              <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
-                {[
-                  { r: 25, label: "Small Lab (25m)" },
-                  { r: 50, label: "Standard Class (50m)" },
-                  { r: 100, label: "Large Hall (100m)" },
-                  { r: 200, label: "Auditorium (200m)" },
-                  { r: 350, label: "Complex (350m)" }
-                ].map(opt => (
-                  <button
-                    key={opt.r}
-                    type="button"
-                    onClick={() => setAllowedRadius(opt.r)}
-                    style={{
-                      padding: "4px 8px", borderRadius: 8, border: "1px solid #cbd5e1",
-                      background: allowedRadius === opt.r ? "#16a34a" : "#f8fafc",
-                      color: allowedRadius === opt.r ? "white" : "#475569",
-                      fontSize: 11, fontWeight: 600, cursor: "pointer"
-                    }}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <button
-              onClick={() => { setShowConfigModal(false); openSession(); }}
-              style={{
-                width: "100%", padding: "12px", borderRadius: 12, border: "none",
-                background: "linear-gradient(135deg,#1d4ed8,#2563eb)", color: "white",
-                fontWeight: 700, fontSize: 14, cursor: "pointer", marginTop: 4
-              }}
-            >
-              Start Session ({timeWindow} mins, {allowedRadius}m radius)
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ACTIVE QR MODAL WITH REAL-TIME CHECKIN FEED & PDF EXPORT */}
-      {showModal && activeSession && (
-        <div style={{
-          position: "fixed", inset: 0, background: "rgba(15,23,42,0.7)", backdropFilter: "blur(6px)",
-          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20
-        }}>
-          <div style={{
-            background: "white", borderRadius: 24, padding: 32, width: 840, maxWidth: "95%",
-            boxShadow: "0 25px 50px -12px rgba(0,0,0,0.3)", display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 32
-          }}>
-            {/* LEFT COLUMN: QR CODE & CONTROLS */}
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlignment: "center", borderRight: "1px solid #f1f5f9", paddingRight: 24 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", marginBottom: 16 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#16a34a", fontWeight: 700, fontSize: 13, background: "#dcfce7", padding: "4px 12px", borderRadius: 20 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#16a34a", animation: "pulse 1.5s infinite" }} />
-                  REAL-TIME LIVE
-                </div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#64748b", display: "flex", alignItems: "center", gap: 4 }}>
-                  <Clock size={14} /> {activeSession.countdown ? fmtTime(activeSession.countdown) : "Active"}
-                </div>
+          {/* ══ DASHBOARD TAB ══ */}
+          {tab === "dashboard" && (
+            <>
+              <div style={{ marginBottom:24 }}>
+                <h1 style={{ fontSize:24, fontWeight:700, color:"#0f172a", margin:0 }}>Course Rep Dashboard</h1>
+                <p style={{ fontSize:13, color:"#64748b", margin:"4px 0 0" }}>Manage attendance sessions for your group</p>
               </div>
 
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 6 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
-                  <div style={{ fontSize: 32, fontWeight: 900, letterSpacing: 3, color: "#1E5A87", fontFamily: "monospace" }}>
-                    {rotatingToken ? `ATT-${rotatingToken}` : (activeSession.id || "ATT-0000")}
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20 }}>
+
+                {/* CREATE SESSION CARD */}
+                <div style={{ background:"white", borderRadius:16, border:"1px solid #e2e8f0",
+                  padding:24, boxShadow:"0 1px 4px rgba(0,0,0,0.04)" }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:20 }}>
+                    <Plus size={18} color="#3b82f6"/>
+                    <span style={{ fontWeight:700, fontSize:16 }}>Create New Session</span>
                   </div>
-                  <span style={{ fontSize: 11, background: "#e0f2fe", color: "#0369a1", padding: "3px 8px", borderRadius: 12, fontWeight: 700 }}>
-                    Changes every 90s
-                  </span>
-                </div>
-                {/* 10s Progress countdown bar */}
-                <div style={{ width: 180, height: 6, background: "#e2e8f0", borderRadius: 4, overflow: "hidden", marginTop: 6 }}>
-                  <div style={{
-                    width: `${(rotatingSecs / 90) * 100}%`,
-                    height: "100%",
-                    background: rotatingSecs <= 3 ? "#ef4444" : "#2A6B9E",
-                    transition: "width 0.4s linear, background 0.3s ease"
-                  }} />
-                </div>
-                <div style={{ fontSize: 11, color: rotatingSecs <= 3 ? "#ef4444" : "#64748b", fontWeight: 600, marginTop: 4 }}>
-                  Refreshes in {rotatingSecs}s
-                </div>
-              </div>
-              <div style={{ fontSize: 13, color: "#64748b", marginBottom: 16, fontWeight: 600, textAlign: "center" }}>{activeSession.courseName}</div>
 
-              <div style={{ display: "flex", justifyContent: "center", marginBottom: 20, padding: 12, background: "#f8fafc", borderRadius: 16, border: "1px solid #e2e8f0" }}>
-                <QRVisual code={rotatingToken ? `ATT-${rotatingToken}` : activeSession.id} size={200} />
-              </div>
-
-              {/* PROJECTOR MODE BUTTON */}
-              <button
-                type="button"
-                onClick={() => setShowProjector(true)}
-                style={{
-                  width: "100%", padding: "12px 16px", borderRadius: 12,
-                  background: "linear-gradient(135deg, #0f172a, #1E5A87)",
-                  color: "white", border: "1px solid #38bdf8", fontWeight: 700, fontSize: 13,
-                  cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-                  gap: 8, boxShadow: "0 4px 14px rgba(56,189,248,0.2)", marginBottom: 12
-                }}
-              >
-                <Maximize2 size={16} color="#38bdf8" /> 📽️ Project to Screen (Auditorium Mode)
-              </button>
-
-              <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%" }}>
-                <button onClick={() => downloadSessionPDF(activeSession)} style={{
-                  width: "100%", padding: "11px 16px", borderRadius: 12, background: "linear-gradient(135deg,#059669,#10b981)",
-                  color: "white", border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex",
-                  alignItems: "center", justifyContent: "center", gap: 8, boxShadow: "0 4px 12px rgba(16,185,129,0.25)"
-                }}>
-                  <Download size={16} /> Download PDF Attendance Sheet
-                </button>
-
-                <button onClick={closeSession} style={{
-                  width: "100%", padding: "11px 16px", borderRadius: 12, background: "#ef4444",
-                  color: "white", border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex",
-                  alignItems: "center", justifyContent: "center", gap: 8
-                }}>
-                  <X size={16} /> End & Close Session
-                </button>
-              </div>
-            </div>
-
-            {/* RIGHT COLUMN: REAL-TIME CHECKIN ROSTER FEED */}
-            <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, paddingBottom: 12, borderBottom: "1px solid #f1f5f9" }}>
-                <div>
-                  <h3 style={{ fontSize: 16, fontWeight: 800, color: "#0f172a", margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
-                    <Users size={18} color="#2563eb" /> Live Check-in Stream
-                  </h3>
-                  <p style={{ fontSize: 12, color: "#64748b", margin: "2px 0 0" }}>Updates automatically as students check in</p>
-                </div>
-                <span style={{ background: "#eff6ff", color: "#2563eb", fontWeight: 800, fontSize: 13, padding: "4px 12px", borderRadius: 20, border: "1px solid #bfdbfe" }}>
-                  {activeSession.students ? activeSession.students.length : 0} Present
-                </span>
-              </div>
-
-              {/* LIVE STREAM FEED */}
-              <div style={{ flex: 1, overflowY: "auto", maxHeight: 320, paddingRight: 6 }}>
-                {!activeSession.students || activeSession.students.length === 0 ? (
-                  <div style={{ padding: "60px 20px", textAlign: "center", color: "#94a3b8" }}>
-                    <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#eff6ff", color: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
-                      <Smartphone size={24} />
+                  <div style={{ marginBottom:14 }}>
+                    <label style={{ fontSize:12, color:"#64748b", display:"block", marginBottom:6 }}>Course</label>
+                    <div style={{ position:"relative" }}>
+                      <select value={selectedCourse} onChange={e => setSelectedCourse(e.target.value)}
+                        disabled={!!activeSession}
+                        style={{
+                          width:"100%", appearance:"none", padding:"10px 36px 10px 12px",
+                          border:"1px solid #e2e8f0", borderRadius:9, fontSize:13,
+                          background: activeSession ? "#f8fafc" : "white", color:"#1e293b", cursor:"pointer"
+                        }}>
+                        {courses.map(c => (
+                          <option key={c.code} value={c.code}>{c.code} — {c.name}</option>
+                        ))}
+                      </select>
+                      <ChevronDown size={14} style={{ position:"absolute", right:10, top:"50%",
+                        transform:"translateY(-50%)", pointerEvents:"none", color:"#94a3b8" }}/>
                     </div>
-                    <div style={{ fontWeight: 700, fontSize: 14, color: "#334155" }}>Waiting for check-ins...</div>
-                    <div style={{ fontSize: 12, marginTop: 4 }}>Ask students to scan QR or enter code <b>{activeSession.id}</b></div>
                   </div>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {activeSession.students.map((st, i) => (
-                      <div key={i} style={{
-                        display: "flex", alignItems: "center", justifyContent: "space-between",
-                        padding: "10px 14px", borderRadius: 12, background: "#f8fafc", border: "1px solid #e2e8f0"
+
+                  <div style={{ marginBottom:20 }}>
+                    <label style={{ fontSize:12, color:"#64748b", display:"block", marginBottom:6 }}>Time Window</label>
+                    <div style={{ position:"relative" }}>
+                      <select value={timeWindow} onChange={e => setTimeWindow(e.target.value)}
+                        disabled={!!activeSession}
+                        style={{
+                          width:"100%", appearance:"none", padding:"10px 36px 10px 12px",
+                          border:"1px solid #e2e8f0", borderRadius:9, fontSize:13,
+                          background: activeSession ? "#f8fafc" : "white", color:"#1e293b", cursor:"pointer"
+                        }}>
+                        {["5","10","15","20","30"].map(t => (
+                          <option key={t} value={t}>{t} minutes</option>
+                        ))}
+                      </select>
+                      <ChevronDown size={14} style={{ position:"absolute", right:10, top:"50%",
+                        transform:"translateY(-50%)", pointerEvents:"none", color:"#94a3b8" }}/>
+                    </div>
+                  </div>
+
+                  {!activeSession ? (
+                    <button onClick={openSession} style={{
+                      width:"100%", padding:"12px", border:"none", borderRadius:10,
+                      background:"linear-gradient(135deg,#1d4ed8,#3b82f6)",
+                      color:"white", fontWeight:700, fontSize:14, cursor:"pointer",
+                      display:"flex", alignItems:"center", justifyContent:"center", gap:8,
+                      transition:"transform 0.2s, box-shadow 0.2s",
+                      boxShadow:"0 4px 12px #3b82f640"
+                    }}>
+                      <QrCode size={16}/> Open Session
+                    </button>
+                  ) : (
+                    <div style={{ display:"flex", gap:10 }}>
+                      <button onClick={() => setShowModal(true)} style={{
+                        flex:1, padding:"11px", border:"none", borderRadius:10,
+                        background:"#1e3a5f", color:"#60a5fa",
+                        fontWeight:700, fontSize:13, cursor:"pointer",
+                        display:"flex", alignItems:"center", justifyContent:"center", gap:7
                       }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                          <Avatar initials={st.avatar || getInitials(st.name)} idx={i} size={34} />
-                          <div>
-                            <div style={{ fontWeight: 700, fontSize: 13, color: "#0f172a" }}>{st.name}</div>
-                            <div style={{ fontSize: 11, color: "#64748b" }}>{st.index}</div>
-                          </div>
-                        </div>
-                        <div style={{ textAlign: "right" }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: "#16a34a", background: "#dcfce7", padding: "2px 8px", borderRadius: 12, display: "inline-block" }}>
-                            {st.time || "Just now"}
-                          </div>
-                          <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2 }}>{st.method || "Session Code"}</div>
-                        </div>
+                        <Eye size={15}/> View Live
+                      </button>
+                      <button onClick={closeSession} style={{
+                        flex:1, padding:"11px", border:"none", borderRadius:10,
+                        background:"#fef2f2", color:"#ef4444",
+                        fontWeight:700, fontSize:13, cursor:"pointer",
+                        display:"flex", alignItems:"center", justifyContent:"center", gap:7
+                      }}>
+                        <X size={15}/> End Session
+                      </button>
+                    </div>
+                  )}
+
+                  {activeSession && (
+                    <div style={{
+                      marginTop:14, padding:"10px 14px", background:"#f0fdf4",
+                      borderRadius:10, border:"1px solid #bbf7d0",
+                      display:"flex", alignItems:"center", justifyContent:"space-between"
+                    }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                        <div style={{ width:8, height:8, borderRadius:"50%", background:"#16a34a",
+                          animation:"pulse 1.5s ease-in-out infinite" }}/>
+                        <span style={{ fontSize:13, fontWeight:600, color:"#166534" }}>{activeSession.id}</span>
                       </div>
-                    ))}
+                      <span style={{ fontSize:20, fontWeight:800, color:"#16a34a", fontVariantNumeric:"tabular-nums" }}>
+                        {fmtTime(activeSession.countdown ?? 0)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* LAST 3 SESSIONS CARD */}
+                <div style={{ background:"white", borderRadius:16, border:"1px solid #e2e8f0",
+                  padding:24, boxShadow:"0 1px 4px rgba(0,0,0,0.04)" }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:20 }}>
+                    <Clock size={18} color="#64748b"/>
+                    <span style={{ fontWeight:700, fontSize:16 }}>Recent Sessions</span>
                   </div>
+
+                  {recentThree.length === 0 ? (
+                    <div style={{ textAlign:"center", color:"#cbd5e1", paddingTop:40 }}>
+                      <QrCode size={40} style={{ marginBottom:10 }}/>
+                      <div style={{ fontSize:13 }}>No sessions yet</div>
+                    </div>
+                  ) : (
+                    <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+                      {recentThree.map((sess, i) => (
+                        <div key={sess.id} style={{
+                          display:"flex", alignItems:"center", justifyContent:"space-between",
+                          padding:"14px 16px", borderRadius:12,
+                          background: sess.status === "active" ? "#f0fdf4" : "#f8fafc",
+                          border: `1px solid ${sess.status === "active" ? "#bbf7d0" : "#e2e8f0"}`,
+                          animation: i === 0 && sess.status === "active" ? "slideIn 0.4s ease" : "none"
+                        }}>
+                          <div style={{ flex:1, minWidth:0 }}>
+                            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4 }}>
+                              <span style={{ fontWeight:700, fontSize:14, color:"#1e293b" }}>{sess.id}</span>
+                              <span style={{
+                                fontSize:11, fontWeight:600, padding:"2px 8px", borderRadius:20,
+                                background: sess.status === "active" ? "#dcfce7" : "#f1f5f9",
+                                color: sess.status === "active" ? "#16a34a" : "#64748b"
+                              }}>
+                                {sess.status === "active" ? "● Live" : "Closed"}
+                              </span>
+                            </div>
+                            <div style={{ fontSize:12, color:"#64748b", overflow:"hidden",
+                              textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                              {sess.course} · {sess.date}
+                            </div>
+                          </div>
+                          <div style={{ display:"flex", alignItems:"center", gap:10, flexShrink:0, marginLeft:12 }}>
+                            <div style={{ textAlign:"right" }}>
+                              <div style={{ fontSize:18, fontWeight:800, color:"#1e293b" }}>{sess.checkins}</div>
+                              <div style={{ fontSize:10, color:"#94a3b8" }}>check-ins</div>
+                            </div>
+                            <button onClick={() => confirmDelete(sess.id)} style={{
+                              background:"#fef2f2", border:"none", borderRadius:8,
+                              width:32, height:32, display:"flex", alignItems:"center",
+                              justifyContent:"center", cursor:"pointer", color:"#ef4444"
+                            }}>
+                              <Trash2 size={14}/>
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* ══ SESSIONS TAB ══ */}
+          {tab === "sessions" && (
+            <>
+              <div style={{ marginBottom:24, display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+                <div>
+                  <h1 style={{ fontSize:24, fontWeight:700, color:"#0f172a", margin:0 }}>Manage Sessions</h1>
+                  <p style={{ fontSize:13, color:"#64748b", margin:"4px 0 0" }}>View, preview and delete attendance sessions</p>
+                </div>
+                {activeSession && (
+                  <button onClick={() => setShowModal(true)} style={{
+                    display:"flex", alignItems:"center", gap:8,
+                    background:"linear-gradient(135deg,#1d4ed8,#3b82f6)",
+                    color:"white", border:"none", borderRadius:10,
+                    padding:"10px 20px", fontWeight:700, fontSize:13, cursor:"pointer",
+                    animation:"pulse-btn 2s ease-in-out infinite"
+                  }}>
+                    <Eye size={15}/> Preview Live Session
+                  </button>
                 )}
               </div>
+
+              <div style={{ background:"white", borderRadius:16, border:"1px solid #e2e8f0",
+                overflow:"hidden", boxShadow:"0 1px 4px rgba(0,0,0,0.04)" }}>
+                <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
+                  <thead>
+                    <tr style={{ background:"#f8fafc" }}>
+                      {["Session Code","Course","Date","Time Window","Check-ins","Status","Actions"].map(h => (
+                        <th key={h} style={{ textAlign:"left", padding:"12px 20px",
+                          color:"#64748b", fontWeight:600, fontSize:12,
+                          borderBottom:"1px solid #e2e8f0" }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sessions.length === 0 ? (
+                      <tr><td colSpan={7} style={{ textAlign:"center", padding:"40px 20px", color:"#94a3b8" }}>
+                        No sessions found
+                      </td></tr>
+                    ) : sessions.map(sess => (
+                      <tr key={sess.id} style={{ borderBottom:"1px solid #f1f5f9" }}>
+                        <td style={{ padding:"14px 20px", fontWeight:700, color:"#3b82f6" }}>{sess.id}</td>
+                        <td style={{ padding:"14px 20px" }}>
+                          <div style={{ fontWeight:600 }}>{sess.course}</div>
+                          <div style={{ fontSize:11, color:"#94a3b8" }}>{sess.courseName.slice(0,30)}…</div>
+                        </td>
+                        <td style={{ padding:"14px 20px", color:"#64748b" }}>{sess.date}</td>
+                        <td style={{ padding:"14px 20px", color:"#64748b" }}>{sess.timeWindow} min</td>
+                        <td style={{ padding:"14px 20px" }}>
+                          <span style={{ fontWeight:700, fontSize:16 }}>{sess.checkins}</span>
+                        </td>
+                        <td style={{ padding:"14px 20px" }}>
+                          <span style={{
+                            fontSize:12, fontWeight:600, padding:"3px 12px", borderRadius:20,
+                            background: sess.status === "active" ? "#dcfce7" : "#f1f5f9",
+                            color: sess.status === "active" ? "#16a34a" : "#64748b"
+                          }}>
+                            {sess.status === "active" ? "● Live" : "Closed"}
+                          </span>
+                        </td>
+                        <td style={{ padding:"14px 20px" }}>
+                          <div style={{ display:"flex", gap:8 }}>
+                            {sess.status === "active" && (
+                              <button onClick={() => setShowModal(true)} style={{
+                                display:"flex", alignItems:"center", gap:6,
+                                background:"#eff6ff", border:"1px solid #bfdbfe",
+                                borderRadius:8, padding:"6px 12px", fontSize:12,
+                                color:"#1d4ed8", cursor:"pointer", fontWeight:500
+                              }}>
+                                <Eye size={13}/> Preview
+                              </button>
+                            )}
+                            <button onClick={() => confirmDelete(sess.id)} style={{
+                              display:"flex", alignItems:"center", gap:6,
+                              background:"#fef2f2", border:"1px solid #fecaca",
+                              borderRadius:8, padding:"6px 12px", fontSize:12,
+                              color:"#ef4444", cursor:"pointer", fontWeight:500
+                            }}>
+                              <Trash2 size={13}/> Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          {/* ══ STUDENTS TAB ══ */}
+          {tab === "students" && (
+            <>
+              <div style={{ marginBottom:24 }}>
+                <h1 style={{ fontSize:24, fontWeight:700, color:"#0f172a", margin:0 }}>Students</h1>
+                <p style={{ fontSize:13, color:"#64748b", margin:"4px 0 0" }}>All students who have checked in across your sessions</p>
+              </div>
+
+              <div style={{ background:"white", borderRadius:16, border:"1px solid #e2e8f0",
+                overflow:"hidden", boxShadow:"0 1px 4px rgba(0,0,0,0.04)" }}>
+                <div style={{ padding:"16px 20px", borderBottom:"1px solid #f1f5f9",
+                  display:"flex", alignItems:"center", gap:12 }}>
+                  <input
+                    value={studentSearch} onChange={e => setStudentSearch(e.target.value)}
+                    placeholder="Search by name or index number…"
+                    style={{ flex:1, padding:"9px 14px", border:"1px solid #e2e8f0",
+                      borderRadius:9, fontSize:13, outline:"none" }}
+                  />
+                  <div style={{ fontSize:13, color:"#94a3b8", whiteSpace:"nowrap" }}>
+                    {allStudents.length} student{allStudents.length !== 1 ? "s" : ""}
+                  </div>
+                </div>
+                <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
+                  <thead>
+                    <tr style={{ background:"#f8fafc" }}>
+                      {["#","Student","Index Number","Method","Sessions","Last Check-in"].map(h => (
+                        <th key={h} style={{ textAlign:"left", padding:"10px 20px",
+                          color:"#64748b", fontWeight:600, fontSize:12,
+                          borderBottom:"1px solid #e2e8f0" }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allStudents.length === 0 ? (
+                      <tr><td colSpan={6} style={{ textAlign:"center", padding:"40px", color:"#94a3b8" }}>
+                        No students found
+                      </td></tr>
+                    ) : allStudents.map((s, i) => (
+                      <tr key={s.index} style={{ borderBottom:"1px solid #f1f5f9" }}>
+                        <td style={{ padding:"12px 20px", color:"#94a3b8" }}>{i+1}</td>
+                        <td style={{ padding:"12px 20px" }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                            <Avatar initials={s.avatar} idx={i}/>
+                            <span style={{ fontWeight:600 }}>{s.name}</span>
+                          </div>
+                        </td>
+                        <td style={{ padding:"12px 20px", color:"#64748b" }}>{s.index}</td>
+                        <td style={{ padding:"12px 20px" }}>
+                          <span style={{ display:"inline-flex", alignItems:"center", gap:5,
+                            background: s.method === "QR Code" ? "#eff6ff" : "#f5f3ff",
+                            color: s.method === "QR Code" ? "#1d4ed8" : "#7c3aed",
+                            padding:"3px 10px", borderRadius:20, fontSize:12, fontWeight:600 }}>
+                            {s.method === "QR Code" ? <Smartphone size={11}/> : <Hash size={11}/>}
+                            {s.method}
+                          </span>
+                        </td>
+                        <td style={{ padding:"12px 20px" }}>
+                          <span style={{ fontWeight:700 }}>{s.sessions}</span>
+                        </td>
+                        <td style={{ padding:"12px 20px", color:"#64748b" }}>{s.time}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+        </main>
+      </div>
+
+      {/* ══ LIVE SESSION MODAL ══ */}
+      {showModal && activeSession && (
+        <div style={{
+          position:"fixed", inset:0, background:"rgba(0,0,0,0.6)",
+          backdropFilter:"blur(4px)", zIndex:1000,
+          display:"flex", alignItems:"center", justifyContent:"center",
+          padding:24, animation:"fadeIn 0.25s ease"
+        }}>
+          <div style={{
+            background:"white", borderRadius:20, width:"100%", maxWidth:960,
+            maxHeight:"90vh", display:"flex", flexDirection:"column",
+            overflow:"hidden", boxShadow:"0 32px 64px rgba(0,0,0,0.3)",
+            animation:"slideUp 0.3s ease"
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              padding:"18px 24px", borderBottom:"1px solid #e2e8f0",
+              display:"flex", alignItems:"center", justifyContent:"space-between",
+              background:"#0f172a"
+            }}>
+              <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+                <div style={{ width:8, height:8, borderRadius:"50%", background:"#4ade80",
+                  animation:"pulse 1.5s ease-in-out infinite" }}/>
+                <span style={{ color:"white", fontWeight:700, fontSize:16 }}>Live Session</span>
+                <span style={{ color:"#60a5fa", fontWeight:700, fontSize:16 }}>{activeSession.id}</span>
+              </div>
+              <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+                <div style={{
+                  background: activeSession.countdown < 60 ? "#7f1d1d" : "#1e3a5f",
+                  color: activeSession.countdown < 60 ? "#fca5a5" : "#60a5fa",
+                  padding:"6px 16px", borderRadius:40, fontWeight:800,
+                  fontSize:18, fontVariantNumeric:"tabular-nums",
+                  display:"flex", alignItems:"center", gap:8
+                }}>
+                  <Clock size={15}/>{fmtTime(activeSession.countdown ?? 0)}
+                </div>
+                <button onClick={() => setShowModal(false)} style={{
+                  background:"#1e293b", border:"none", borderRadius:8,
+                  width:36, height:36, cursor:"pointer", color:"#94a3b8",
+                  display:"flex", alignItems:"center", justifyContent:"center"
+                }}>
+                  <X size={18}/>
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body: QR left | Check-ins right */}
+            <div style={{ display:"flex", flex:1, overflow:"hidden" }}>
+
+              {/* ── LEFT: QR + Info ── */}
+              <div style={{
+                width:340, flexShrink:0, background:"#0f172a",
+                display:"flex", flexDirection:"column", alignItems:"center",
+                justifyContent:"center", padding:32, gap:20
+              }}>
+                <div style={{ fontSize:12, color:"#64748b", fontWeight:600, letterSpacing:"1px",
+                  textTransform:"uppercase", alignSelf:"flex-start" }}>Scan QR Code</div>
+
+                <div style={{
+                  padding:16, background:"white", borderRadius:16,
+                  boxShadow:"0 0 40px #3b82f640"
+                }}>
+                  <QRVisual code={activeSession.id} size={220}/>
+                </div>
+
+                {/* Session Code badge */}
+                <div style={{ textAlign:"center" }}>
+                  <div style={{ fontSize:11, color:"#64748b", marginBottom:6 }}>OR USE SESSION CODE</div>
+                  <div style={{
+                    background:"#1e293b", border:"2px solid #334155",
+                    borderRadius:12, padding:"10px 24px",
+                    fontSize:28, fontWeight:900, letterSpacing:8,
+                    color:"#60a5fa", fontVariantNumeric:"tabular-nums"
+                  }}>
+                    {activeSession.id}
+                  </div>
+                </div>
+
+                {/* Course name */}
+                <div style={{
+                  width:"100%", background:"#1e293b", borderRadius:10,
+                  padding:"12px 16px", border:"1px solid #334155"
+                }}>
+                  <div style={{ fontSize:10, color:"#64748b", fontWeight:600,
+                    textTransform:"uppercase", letterSpacing:"1px", marginBottom:4 }}>Course</div>
+                  <div style={{ fontSize:13, fontWeight:700, color:"#e2e8f0" }}>{activeSession.course}</div>
+                  <div style={{ fontSize:11, color:"#64748b", marginTop:2 }}>{activeSession.courseName}</div>
+                </div>
+
+                {/* Stats strip */}
+                <div style={{ display:"flex", gap:12, width:"100%" }}>
+                  <div style={{ flex:1, background:"#1e293b", borderRadius:10, padding:"10px 14px",
+                    border:"1px solid #334155", textAlign:"center" }}>
+                    <div style={{ fontSize:24, fontWeight:800, color:"#4ade80" }}>
+                      {activeSession.checkins}
+                    </div>
+                    <div style={{ fontSize:10, color:"#64748b" }}>Check-ins</div>
+                  </div>
+                  <div style={{ flex:1, background:"#1e293b", borderRadius:10, padding:"10px 14px",
+                    border:"1px solid #334155", textAlign:"center" }}>
+                    <div style={{ fontSize:24, fontWeight:800, color:"#60a5fa" }}>
+                      {activeSession.timeWindow}m
+                    </div>
+                    <div style={{ fontSize:10, color:"#64748b" }}>Duration</div>
+                  </div>
+                </div>
+
+                <button onClick={closeSession} style={{
+                  width:"100%", padding:"11px", border:"none", borderRadius:10,
+                  background:"#7f1d1d", color:"#fca5a5",
+                  fontWeight:700, fontSize:13, cursor:"pointer",
+                  display:"flex", alignItems:"center", justifyContent:"center", gap:8
+                }}>
+                  <X size={15}/> End Session
+                </button>
+              </div>
+
+              {/* ── RIGHT: Check-in list ── */}
+              <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+                <div style={{
+                  padding:"14px 20px", borderBottom:"1px solid #f1f5f9",
+                  display:"flex", alignItems:"center", justifyContent:"space-between"
+                }}>
+                  <span style={{ fontWeight:700, fontSize:14 }}>Signed-in Students</span>
+                  <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                    <Wifi size={14} color="#16a34a"/>
+                    <span style={{ fontSize:12, color:"#16a34a", fontWeight:600 }}>Live</span>
+                  </div>
+                </div>
+
+                <div style={{ flex:1, overflowY:"auto", padding:"12px 20px" }}>
+                  {activeSession.students.length === 0 ? (
+                    <div style={{ textAlign:"center", paddingTop:60, color:"#94a3b8" }}>
+                      <UserCheck size={48} style={{ marginBottom:12, opacity:0.4 }}/>
+                      <div style={{ fontWeight:600, fontSize:14 }}>Waiting for students…</div>
+                      <div style={{ fontSize:12, marginTop:4 }}>Students will appear here as they check in</div>
+                    </div>
+                  ) : (
+                    <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                      {activeSession.students.map((st, i) => (
+                        <div key={st.index + i} style={{
+                          display:"flex", alignItems:"center", justifyContent:"space-between",
+                          padding:"12px 16px", borderRadius:12,
+                          background: newCheckin === st.index ? "#f0fdf4" : "#f8fafc",
+                          border: `1px solid ${newCheckin === st.index ? "#86efac" : "#e2e8f0"}`,
+                          animation: i === 0 ? "slideIn 0.4s ease" : "none",
+                          transition:"background 0.5s, border-color 0.5s"
+                        }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+                            <Avatar initials={st.avatar} idx={i}/>
+                            <div>
+                              <div style={{ fontWeight:700, fontSize:13 }}>{st.name}</div>
+                              <div style={{ fontSize:11, color:"#94a3b8" }}>{st.index}</div>
+                            </div>
+                          </div>
+                          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                            {newCheckin === st.index && (
+                              <span style={{ fontSize:11, fontWeight:700, color:"#16a34a",
+                                animation:"fadeIn 0.3s ease", display:"flex", alignItems:"center", gap:4 }}>
+                                <CheckCircle size={13}/> Just joined!
+                              </span>
+                            )}
+                            <span style={{ display:"inline-flex", alignItems:"center", gap:4,
+                              background: st.method === "QR Code" ? "#eff6ff" : "#f5f3ff",
+                              color: st.method === "QR Code" ? "#1d4ed8" : "#7c3aed",
+                              padding:"3px 9px", borderRadius:20, fontSize:11, fontWeight:600 }}>
+                              {st.method === "QR Code" ? <Smartphone size={10}/> : <Hash size={10}/>}
+                              {st.method}
+                            </span>
+                            <span style={{ fontSize:11, color:"#94a3b8" }}>{st.time}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
       )}
+
+      {/* ══ DELETE CONFIRM MODAL ══ */}
+      {deleteTarget && (
+        <div style={{
+          position:"fixed", inset:0, background:"rgba(0,0,0,0.5)",
+          backdropFilter:"blur(4px)", zIndex:2000,
+          display:"flex", alignItems:"center", justifyContent:"center",
+          animation:"fadeIn 0.2s ease"
+        }}>
+          <div style={{
+            background:"white", borderRadius:16, padding:28, maxWidth:380, width:"90%",
+            boxShadow:"0 20px 40px rgba(0,0,0,0.2)", animation:"slideUp 0.25s ease"
+          }}>
+            <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:16 }}>
+              <div style={{ width:44, height:44, borderRadius:12, background:"#fef2f2",
+                display:"flex", alignItems:"center", justifyContent:"center" }}>
+                <AlertCircle size={24} color="#ef4444"/>
+              </div>
+              <div>
+                <div style={{ fontWeight:700, fontSize:16 }}>Delete Session</div>
+                <div style={{ fontSize:12, color:"#64748b" }}>This action cannot be undone</div>
+              </div>
+            </div>
+            <p style={{ fontSize:13, color:"#475569", marginBottom:20, lineHeight:1.6 }}>
+              Are you sure you want to delete session <strong>{deleteTarget}</strong>?
+              All check-in records for this session will be permanently removed.
+            </p>
+            <div style={{ display:"flex", gap:10 }}>
+              <button onClick={() => setDeleteTarget(null)} style={{
+                flex:1, padding:"10px", border:"1px solid #e2e8f0", borderRadius:9,
+                background:"white", fontSize:13, fontWeight:600, cursor:"pointer", color:"#475569"
+              }}>Cancel</button>
+              <button onClick={doDelete} style={{
+                flex:1, padding:"10px", border:"none", borderRadius:9,
+                background:"#ef4444", color:"white", fontSize:13, fontWeight:700, cursor:"pointer"
+              }}>Delete Session</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(1.4)} }
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+        @keyframes slideIn { from{opacity:0;transform:translateY(-12px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes slideUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes pulse-btn { 0%,100%{box-shadow:0 0 0 0 #3b82f640} 50%{box-shadow:0 0 0 8px #3b82f600} }
+        select:focus,input:focus { outline:2px solid #3b82f6; outline-offset:1px; }
+        ::-webkit-scrollbar{width:4px} ::-webkit-scrollbar-track{background:#f1f5f9}
+        ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px}
+      `}</style>
     </div>
   );
 }

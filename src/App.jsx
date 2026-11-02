@@ -1,18 +1,26 @@
-﻿import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import GetStarted from './pages/GetStarted';
 import Login from './pages/Login';
-import Portal from './pages/Portal';
 import LecturerDashboard from './pages/DashLecturer';
 import CourseRepDashboard from './pages/DashRep';
-import StudentDashboard from './pages/DashStudent';
-import { API_BASE_URL } from './api/config';
+import AdminPanel from './pages/AdminPanel';
 
-function AdminRedirect() {
-  useEffect(() => {
-    window.location.replace(`${API_BASE_URL}/admin/`);
-  }, []);
-  return null;
+// ── Auth Guard Component ──────────────────────────────────────────
+function ProtectedRoute({ children, allowedRole }) {
+  const user = sessionStorage.getItem('web_user');
+  const role = sessionStorage.getItem('role');
+
+  if (!user || !role) {
+    // If not logged in, redirect to login page immediately
+    return <Navigate to="/Login" replace />;
+  }
+
+  if (allowedRole && role !== allowedRole) {
+    // If logged in with wrong role (e.g. rep trying to access lecturer portal), redirect to login
+    return <Navigate to="/Login" replace />;
+  }
+
+  return children;
 }
 
 export default function App() {
@@ -20,15 +28,30 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<GetStarted/>} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/Login" element={<Navigate to="/login" replace />} />
-        <Route path="/portal" element={<Portal />} />
-        <Route path="/Portal" element={<Navigate to="/portal" replace />} />
-        <Route path="/lec" element={<LecturerDashboard />} />
-        <Route path="/rep" element={<CourseRepDashboard />} />
-        <Route path="/student" element={<StudentDashboard />} />
-        <Route path="/admin" element={<AdminRedirect />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="/Login" element={<Login />} />
+        
+        {/* Protected Lecturer Route */}
+        <Route 
+          path="/lec" 
+          element={
+            <ProtectedRoute allowedRole="lecturer">
+              <LecturerDashboard />
+            </ProtectedRoute>
+          } 
+        />
+        
+        {/* Protected Course Rep Route */}
+        <Route 
+          path="/rep" 
+          element={
+            <ProtectedRoute allowedRole="course_rep">
+              <CourseRepDashboard />
+            </ProtectedRoute>
+          } 
+        />
+
+        {/* Admin Portal (Protected internally by Passcode Gate) */}
+        <Route path="/admin" element={<AdminPanel />} />
       </Routes>
     </BrowserRouter>
   );
