@@ -1,165 +1,148 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import {
-  LogIn, Eye, EyeOff, UserCheck, GraduationCap,
-  ArrowLeft, AlertCircle, CheckCircle2, Loader2,
+  GraduationCap, ArrowLeft, QrCode, Smartphone,
+  CheckCircle2, AlertCircle, Eye, EyeOff, Loader2, LogIn, Lock, KeyRound, ShieldCheck
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { API_BASE_URL } from '../api/config';
-
-// Logo from public folder
-const infotessLogo = "/infotess logo.jpg";
-
-// ── API URLs ───
-const LECTURER_LOGIN_URL = `${API_BASE_URL}/api/auth/lecturer/login/`;
-const REP_LOGIN_URL      = `${API_BASE_URL}/api/auth/rep/login/`;
-
-function saveWebUser(user, token) {
-  sessionStorage.setItem('web_user', JSON.stringify(user));
-  sessionStorage.setItem('role',     user.role);
-  if (token) {
-    sessionStorage.setItem('access_token', token.access);
-    sessionStorage.setItem('refresh_token', token.refresh);
-  }
-}
-
-// ================== DEEPER BLUE GRADIENTS ==================
-// Overlay gradient (deeper than before)
-const OVERLAY_GRAD = `linear-gradient(135deg, #2A6B9E 0%, #0E4B63 100%)`;
-// Button gradient (even deeper, more intense)
-const BUTTON_GRAD = `linear-gradient(135deg, #1E5A87 0%, #0a3a4fff 100%)`;
-const PRIMARY = '#2A6B9E';
-const TRANS = 'all 0.55s cubic-bezier(0.65, 0, 0.35, 1)';
-
-const S = {
-  // ✅ Page background changed to white
-  page: { minHeight: '100vh', background: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, position: 'relative', overflow: 'hidden', fontFamily: "'DM Sans','Segoe UI',sans-serif" },
-  // Soft light blue blobs (optional, can be removed)
-  blob1: { position: 'absolute', top: '-10%', left: '-5%', width: 500, height: 500, borderRadius: '50%', background: 'rgba(42,107,158,0.05)', filter: 'blur(80px)', pointerEvents: 'none' },
-  blob2: { position: 'absolute', bottom: '-10%', right: '-5%', width: 400, height: 400, borderRadius: '50%', background: 'rgba(14,75,99,0.05)', filter: 'blur(80px)', pointerEvents: 'none' },
-  blob3: { position: 'absolute', top: '40%', left: '40%', width: 300, height: 300, borderRadius: '50%', background: 'rgba(42,107,158,0.03)', filter: 'blur(60px)', pointerEvents: 'none' },
-  backBtn: { position: 'absolute', top: 28, left: 28, display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(0,0,0,0.05)', backdropFilter: 'blur(12px)', border: '1px solid rgba(0,0,0,0.1)', padding: '10px 20px', borderRadius: 12, color: '#333', cursor: 'pointer', fontSize: 14, fontWeight: 500, transition: TRANS, zIndex: 300 },
-  card: { background: '#ffffff', borderRadius: 40, boxShadow: '0 32px 64px rgba(0,0,0,0.1)', position: 'relative', overflow: 'hidden', width: 960, maxWidth: '100%', minHeight: 580 },
-  formPane: { position: 'absolute', top: 0, height: '100%', width: '50%', transition: TRANS, zIndex: 2 },
-  formPaneVisible: { opacity: 1, pointerEvents: 'all', transform: 'translateX(0)' },
-  formPaneHidden: { opacity: 0, pointerEvents: 'none', transform: 'translateX(-8px)' },
-  form: { height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 48px', background: '#fff' },
-  logo: { width: 56, height: 56, borderRadius: 16, background: OVERLAY_GRAD, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20, boxShadow: '0 8px 20px rgba(42,107,158,0.2)', overflow: 'hidden' },
-  logoImg: { width: '100%', height: '100%', objectFit: 'contain', borderRadius: 12 },
-  heading: { fontSize: 26, fontWeight: 700, color: '#111827', margin: '0 0 6px' },
-  badge: { display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(42,107,158,0.08)', border: '1px solid rgba(42,107,158,0.2)', padding: '6px 14px', borderRadius: 40, fontSize: 12, fontWeight: 600, color: PRIMARY, marginBottom: 20 },
-  input: { width: '100%', padding: '13px 16px', background: '#f9fafb', border: '1.5px solid #e5e7eb', borderRadius: 12, fontSize: 14, color: '#111827', marginBottom: 10, transition: 'all 0.2s' },
-  passWrap: { position: 'relative', width: '100%' },
-  eyeBtn: { position: 'absolute', right: 12, top: '50%', transform: 'translateY(-60%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 6, lineHeight: 0 },
-  link: { color: PRIMARY, fontSize: 12, textDecoration: 'none', margin: '4px 0 16px', alignSelf: 'flex-end' },
-  submitBtn: { width: '100%', padding: '13px 0', background: BUTTON_GRAD, color: 'white', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer', letterSpacing: 0.3, boxShadow: '0 6px 18px rgba(30,90,135,0.4)', transition: TRANS },
-  // ✅ All four corners of the overlay are now curved (borderRadius: 40px)
-  overlay: { position: 'absolute', top: 0, height: '100%', width: '50%', background: OVERLAY_GRAD, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: TRANS, zIndex: 100, borderRadius: 40 },
-  overlayRight: { left: '50%' },
-  overlayLeft: { left: '0%' },
-  overlayInner: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 36px', textAlign: 'center' },
-  overlayIcon: { width: 72, height: 72, background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
-  overlayHeading: { fontSize: 28, fontWeight: 700, color: 'white', margin: '0 0 12px' },
-  overlayText: { fontSize: 13, color: 'rgba(255,255,255,0.85)', lineHeight: 1.7, margin: '0 0 4px' },
-  switchBtn: { marginTop: 4, padding: '12px 36px', borderRadius: 40, background: 'transparent', border: '2px solid rgba(255,255,255,0.8)', color: 'white', fontSize: 13, fontWeight: 600, cursor: 'pointer', letterSpacing: 0.5, textTransform: 'uppercase', transition: TRANS },
-};
+import { STUDENT_LOGIN_URL, API_BASE_URL, saveWebUser } from '../api/config';
+import { getDeviceInfo } from '../utils/deviceUtils';
 
 export default function Login() {
   const navigate = useNavigate();
-
-  const [panel, setPanel] = useState('lecturer');
-  const [showLectPass, setShowLectPass] = useState(false);
-  const [showRepPass, setShowRepPass] = useState(false);
+  const [indexNum, setIndexNum] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
-  // Lecturer
-  const [lectEmail, setLectEmail] = useState('');
-  const [lectPassword, setLectPassword] = useState('');
-  const [lectError, setLectError] = useState('');
-  const [lectSuccess, setLectSuccess] = useState('');
+  // First-Time Login Password Change State
+  const [showChangePassModal, setShowChangePassModal] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [tempUser, setTempUser] = useState(null);
+  const [tempToken, setTempToken] = useState(null);
+  const [changePassLoading, setChangePassLoading] = useState(false);
+  const [changePassError, setChangePassError] = useState('');
 
-  // Rep
-  const [repIndex, setRepIndex] = useState('');
-  const [repPin, setRepPin] = useState('');
-  const [repError, setRepError] = useState('');
-  const [repSuccess, setRepSuccess] = useState('');
-
-  const isRight = panel === 'rep';
-
-  // ── Lecturer submit (Django Auth) ────────────────────────
-  async function handleLecturerSubmit(e) {
+  async function handleStudentSubmit(e) {
     e.preventDefault();
-    setLectError('');
-    setLectSuccess('');
+    setError('');
+    setSuccess('');
 
-    if (!lectEmail.trim()) { setLectError('Email is required.'); return; }
-    if (!lectPassword) { setLectError('Password is required.'); return; }
+    const cleanInput = indexNum.trim();
+    if (!cleanInput) { setError('Index number or Gmail address is required.'); return; }
+    if (!password) { setError('Password is required.'); return; }
 
     setLoading(true);
+
     try {
-      const res = await fetch(LECTURER_LOGIN_URL, {
+      const { deviceId, deviceName } = getDeviceInfo();
+
+      const res = await fetch(STUDENT_LOGIN_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
         body: JSON.stringify({
-          email: lectEmail.trim().toLowerCase(),
-          password: lectPassword,
+          email: cleanInput,
+          index_number: cleanInput,
+          password: password,
+          device_id: deviceId,
+          device_name: deviceName
         }),
       });
 
-      const json = await res.json();
+      const data = await res.json();
 
-      if (!json.success) {
-        setLectError(json.message || 'Login failed. Please try again.');
+      if (!res.ok || data.success === false) {
+        throw new Error(data.message || 'Invalid index number, Gmail, or password.');
+      }
+
+      const userData = data.data?.user || data.user || {
+        index_number: cleanInput,
+        role: 'student',
+      };
+      const token = data.data?.token || data.token || data.access_token || null;
+
+      // STRICT ROLE ABSTRACTION: Ensure only Students can log into Student Portal
+      const userRole = (userData.role || '').toLowerCase();
+      if (userRole !== 'student') {
+        const portalTarget = userRole === 'lecturer' ? 'Lecturer Portal' : 'Course Rep Portal';
+        setError(`Access Denied: Your account is registered as a ${userRole === 'lecturer' ? 'Lecturer' : 'Course Representative'}. You cannot log into the Student Portal. Please use the ${portalTarget}.`);
+        setLoading(false);
         return;
       }
 
-      saveWebUser(json.data.user, json.data.token);
-      setLectSuccess(`Welcome back, ${json.data.user.first_name}!`);
-      setTimeout(() => navigate('/lec'), 900);
+      // Check if student must change password on first login
+      if (userData.must_change_password) {
+        setTempUser(userData);
+        setTempToken(token);
+        setShowChangePassModal(true);
+        setLoading(false);
+        return;
+      }
+
+      saveWebUser(userData, token);
+      setSuccess('Login successful! Redirecting to Student Dashboard...');
+      setTimeout(() => navigate('/student'), 800);
 
     } catch (err) {
-      console.error('Lecturer login error:', err);
-      setLectError('Could not reach the server. Check your connection.');
+      setError(err.message || 'Invalid credentials. Please verify your details.');
     } finally {
       setLoading(false);
     }
   }
 
-  // ── Rep submit (Django Auth) ─────────────────────────────
-  async function handleRepSubmit(e) {
+  // Handle first-time password change submit
+  async function handleChangePasswordSubmit(e) {
     e.preventDefault();
-    setRepError('');
-    setRepSuccess('');
+    setChangePassError('');
 
-    if (!repIndex.trim()) { setRepError('Index number is required.'); return; }
-    if (repPin.length !== 10) { setRepError('PIN must be exactly 10 digits.'); return; }
+    if (!newPassword || newPassword.length < 6) {
+      setChangePassError('Password must be at least 6 characters long.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setChangePassError('Passwords do not match. Please verify.');
+      return;
+    }
 
-    setLoading(true);
+    setChangePassLoading(true);
+
     try {
-      const res = await fetch(REP_LOGIN_URL, {
+      const accessToken = typeof tempToken === 'object' && tempToken ? tempToken.access : tempToken;
+      const res = await fetch(`${API_BASE_URL}/api/auth/change-password/`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
+        },
         body: JSON.stringify({
-          index_number: repIndex.trim().toUpperCase(),
-          pin: repPin,
-        }),
+          new_password: newPassword,
+          confirm_password: confirmPassword
+        })
       });
 
-      const json = await res.json();
-
-      if (!json.success) {
-        setRepError(json.message || 'Login failed. Please try again.');
-        return;
+      const data = await res.json();
+      if (!res.ok || data.success === false) {
+        throw new Error(data.message || 'Failed to update password.');
       }
 
-      saveWebUser(json.data.user, json.data.token);
-      setRepSuccess(`Welcome, ${json.data.user.first_name}!`);
-      setTimeout(() => navigate('/rep'), 900);
+      // Update local student user
+      const updatedUser = {
+        ...tempUser,
+        must_change_password: false
+      };
+      saveWebUser(updatedUser, tempToken);
+
+      setShowChangePassModal(false);
+      setSuccess('Password set successfully! Taking you to your dashboard...');
+      setTimeout(() => navigate('/student'), 1000);
 
     } catch (err) {
-      console.error('Rep login error:', err);
-      setRepError('Could not reach the server. Check your connection.');
+      setChangePassError(err.message || 'Could not update password. Please try again.');
     } finally {
-      setLoading(false);
+      setChangePassLoading(false);
     }
   }
 
@@ -170,167 +153,230 @@ export default function Login() {
       <div style={S.blob3} />
 
       <button style={S.backBtn} onClick={() => navigate('/')}>
-        <ArrowLeft size={18} /> Back to Home
+        <ArrowLeft size={16} /> Back to Home
       </button>
 
-      <div style={S.card}>
-
-        {/* ── Lecturer form (left) ── */}
-        <div style={{ ...S.formPane, ...(isRight ? S.formPaneHidden : S.formPaneVisible) }}>
-          <form onSubmit={handleLecturerSubmit} style={S.form}>
+      <div style={S.container}>
+        <div style={S.formPane}>
+          <form style={S.form} onSubmit={handleStudentSubmit}>
             <div style={S.logo}>
-              <img src={infotessLogo} alt="INFOTESS Logo" style={S.logoImg} />
-            </div>
-            <h1 style={S.heading}>Lecturer Portal</h1>
-            <div style={S.badge}><GraduationCap size={14} /> Faculty Access</div>
-
-            {lectError && <Alert type="error" msg={lectError} />}
-            {lectSuccess && <Alert type="success" msg={lectSuccess} />}
-
-            <input
-              style={S.input}
-              type="email"
-              placeholder="Email address"
-              value={lectEmail}
-              onChange={e => { setLectEmail(e.target.value); setLectError(''); }}
-              required
-              autoComplete="email"
-            />
-
-            <div style={S.passWrap}>
-              <input
-                style={S.input}
-                type={showLectPass ? 'text' : 'password'}
-                placeholder="Password"
-                value={lectPassword}
-                onChange={e => { setLectPassword(e.target.value); setLectError(''); }}
-                required
-              />
-              <button type="button" style={S.eyeBtn} onClick={() => setShowLectPass(v => !v)}>
-                {showLectPass ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
+              <img src="/infotess.png" alt="INFOCTESS" style={S.logoImg} onError={(e) => { e.target.style.display = 'none'; }} />
             </div>
 
-            <a href="#" style={S.link} onClick={e => e.preventDefault()}>Forgot Password?</a>
-
-            <button type="submit" style={S.submitBtn} disabled={loading}>
-              {loading
-                ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
-                : <LogIn size={16} />
-              }
-              {loading ? 'Signing in...' : 'Sign in as Lecturer'}
-            </button>
-          </form>
-        </div>
-
-        {/* ── Course Rep form (right) ── */}
-        <div style={{ ...S.formPane, left: '50%', ...(isRight ? S.formPaneVisible : S.formPaneHidden) }}>
-          <form onSubmit={handleRepSubmit} style={S.form}>
-            <div style={S.logo}>
-              <img src={infotessLogo} alt="INFOTESS Logo" style={S.logoImg} />
-            </div>
-            <h1 style={S.heading}>Course Rep Login</h1>
-            <div style={S.badge}><UserCheck size={14} /> Representative Access</div>
-
-            {repError && <Alert type="error" msg={repError} />}
-            {repSuccess && <Alert type="success" msg={repSuccess} />}
-
-            <input
-              style={S.input}
-              type="text"
-              placeholder="Index Number"
-              value={repIndex}
-              onChange={e => { setRepIndex(e.target.value); setRepError(''); }}
-              required
-            />
-
-            <div style={S.passWrap}>
-              <input
-                style={S.input}
-                type={showRepPass ? 'text' : 'password'}
-                placeholder="10-Digit PIN"
-                value={repPin}
-                onChange={e => { setRepPin(e.target.value); setRepError(''); }}
-                required
-              />
-              <button type="button" style={S.eyeBtn} onClick={() => setShowRepPass(v => !v)}>
-                {showRepPass ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
+            <h1 style={S.heading}>Student Portal</h1>
+            <div style={S.badge}>
+              <GraduationCap size={14} />
+              <span>Smart Attendance Sign In</span>
             </div>
 
-            <button type="submit" style={S.submitBtn} disabled={loading}>
-              {loading
-                ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
-                : <LogIn size={16} />
-              }
-              {loading ? 'Signing in...' : 'Sign in as Course Rep'}
-            </button>
-          </form>
-        </div>
-
-        {/* ── Overlay (deeper blue gradient, ALL FOUR corners curved) ── */}
-        <div style={{ ...S.overlay, ...(isRight ? S.overlayLeft : S.overlayRight) }}>
-          <div style={S.overlayInner}>
-            {isRight ? (
-              <>
-                <div style={S.overlayIcon}><GraduationCap size={36} color="white" /></div>
-                <h2 style={S.overlayHeading}>Lecturer DashBoard</h2>
-                <p style={S.overlayText}>Sign in with your faculty email and password to manage courses and view attendance reports.</p>
-                <FeaturePills items={['Live Tracking', 'Auto Reports', 'Analytics']} />
-                <button style={S.switchBtn} onClick={() => setPanel('lecturer')}>Switch to Lecturer</button>
-              </>
-            ) : (
-              <>
-                <div style={S.overlayIcon}><UserCheck size={36} color="white" /></div>
-                <h2 style={S.overlayHeading}>Course Rep Dashboard</h2>
-                <p style={S.overlayText}>Manage attendance sessions, generate QR codes, and track student participation for your group.</p>
-                <FeaturePills items={['QR Generation', 'Check-in Mgmt', 'Reports']} />
-                <button style={S.switchBtn} onClick={() => setPanel('rep')}>Course Rep Login</button>
-              </>
+            {error && (
+              <div style={S.alertError}>
+                <AlertCircle size={15} style={{ flexShrink: 0 }} />
+                <span>{error}</span>
+              </div>
             )}
-          </div>
-        </div>
 
+            {success && (
+              <div style={S.alertSuccess}>
+                <CheckCircle2 size={15} style={{ flexShrink: 0 }} />
+                <span>{success}</span>
+              </div>
+            )}
+
+            <div style={{ width: '100%', marginBottom: 12 }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 4 }}>
+                INDEX NUMBER OR STUDENT GMAIL
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. 5261000018 or student@gmail.com"
+                value={indexNum}
+                onChange={(e) => setIndexNum(e.target.value)}
+                style={S.input}
+                autoComplete="username"
+              />
+            </div>
+
+            <div style={{ width: '100%', marginBottom: 16 }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 4 }}>
+                PASSWORD
+              </label>
+              <div style={S.passWrap}>
+                <input
+                  type={showPass ? 'text' : 'password'}
+                  placeholder="Enter your student password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  style={S.input}
+                  autoComplete="current-password"
+                />
+                <button
+                  type="button"
+                  style={S.eyeBtn}
+                  onClick={() => setShowPass(!showPass)}
+                >
+                  {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              style={{ ...S.submitBtn, opacity: loading ? 0.75 : 1 }}
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+                  Signing In...
+                </>
+              ) : (
+                <>
+                  <LogIn size={16} /> Sign In as Student
+                </>
+              )}
+            </button>
+
+            <div style={{ marginTop: 24, textAlign: 'center', fontSize: 12, color: '#64748b' }}>
+              <span>Are you a faculty lecturer or course rep? </span>
+              <a
+                href="/portal"
+                onClick={(e) => { e.preventDefault(); navigate('/portal'); }}
+                style={{ color: '#2A6B9E', fontWeight: 600, textDecoration: 'none' }}
+              >
+                Staff Portal
+              </a>
+            </div>
+          </form>
+        </div>
       </div>
 
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-        input::placeholder { color: #9ca3af; }
-        input:focus { outline: none; box-shadow: 0 0 0 2px rgba(42,107,158,0.35); background: #fff; }
-        button:active { transform: scale(0.98); }
-      `}</style>
+      {/* ── FIRST-TIME LOGIN FORCE PASSWORD CHANGE MODAL ── */}
+      {showChangePassModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.8)', backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, padding: 16
+        }}>
+          <div style={{
+            background: 'white', borderRadius: 28, padding: '32px 28px', width: '100%', maxWidth: 440,
+            boxShadow: '0 25px 60px -15px rgba(0,0,0,0.4)', textAlign: 'center'
+          }}>
+            <div style={{
+              width: 56, height: 56, borderRadius: 16, background: 'linear-gradient(135deg, #1E5A87, #2A6B9E)',
+              color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px',
+              boxShadow: '0 8px 20px rgba(30,90,135,0.25)'
+            }}>
+              <KeyRound size={28} />
+            </div>
+
+            <h2 style={{ fontSize: 20, fontWeight: 800, color: '#0f172a', margin: '0 0 6px' }}>
+              First-Time Sign In Setup
+            </h2>
+            <p style={{ fontSize: 13, color: '#64748b', margin: '0 0 20px', lineHeight: 1.5 }}>
+              Welcome to INFOCTESS! Please set your personal secret password. You will use this password for all future logins.
+            </p>
+
+            {changePassError && (
+              <div style={{
+                background: '#fee2e2', border: '1px solid #fca5a5', color: '#991b1b',
+                padding: '10px 14px', borderRadius: 12, fontSize: 12, fontWeight: 600,
+                marginBottom: 16, display: 'flex', alignItems: 'center', gap: 6, textAlign: 'left'
+              }}>
+                <AlertCircle size={15} style={{ flexShrink: 0 }} />
+                <span>{changePassError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleChangePasswordSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12, textAlign: 'left' }}>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 4 }}>
+                  CREATE NEW PASSWORD (MIN 6 CHARACTERS)
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={showNewPass ? 'text' : 'password'}
+                    placeholder="Enter new password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    style={{ ...S.input, marginBottom: 0 }}
+                    required
+                  />
+                  <button
+                    type="button"
+                    style={S.eyeBtn}
+                    onClick={() => setShowNewPass(!showNewPass)}
+                  >
+                    {showNewPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 4 }}>
+                  CONFIRM NEW PASSWORD
+                </label>
+                <input
+                  type={showNewPass ? 'text' : 'password'}
+                  placeholder="Re-enter new password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  style={{ ...S.input, marginBottom: 0 }}
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={changePassLoading}
+                style={{
+                  width: '100%', padding: '14px', marginTop: 10,
+                  background: 'linear-gradient(135deg, #1E5A87, #0A3A4F)',
+                  color: 'white', border: 'none', borderRadius: 12, fontWeight: 800,
+                  fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', gap: 8, boxShadow: '0 4px 14px rgba(30,90,135,0.3)',
+                  opacity: changePassLoading ? 0.75 : 1
+                }}
+              >
+                {changePassLoading ? (
+                  <>
+                    <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+                    Saving Password to Database...
+                  </>
+                ) : (
+                  <>
+                    <Lock size={16} /> Save Password & Continue
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function Alert({ type, msg }) {
-  const isErr = type === 'error';
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 8,
-      padding: '10px 14px', borderRadius: 10, marginBottom: 8,
-      width: '100%', fontSize: 13,
-      background: isErr ? '#fef2f2' : '#f0fdf4',
-      color: isErr ? '#dc2626' : '#16a34a',
-      border: `1px solid ${isErr ? '#fecaca' : '#bbf7d0'}`,
-    }}>
-      {isErr ? <AlertCircle size={15} /> : <CheckCircle2 size={15} />}
-      {msg}
-    </div>
-  );
-}
+const OVERLAY_GRAD = "linear-gradient(135deg, #2A6B9E 0%, #0E4B63 100%)";
+const BUTTON_GRAD = "linear-gradient(135deg, #1E5A87 0%, #0a3a4fff 100%)";
+const PRIMARY = '#2A6B9E';
 
-function FeaturePills({ items }) {
-  return (
-    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', margin: '16px 0 28px' }}>
-      {items.map(item => (
-        <span key={item} style={{
-          background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(6px)',
-          border: '1px solid rgba(255,255,255,0.3)',
-          borderRadius: 40, padding: '5px 14px',
-          fontSize: 12, color: 'white', fontWeight: 500,
-        }}>✓ {item}</span>
-      ))}
-    </div>
-  );
-}
+const S = {
+  page: { minHeight: '100vh', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, position: 'relative', overflow: 'hidden', fontFamily: "'DM Sans','Segoe UI',sans-serif" },
+  blob1: { position: 'absolute', top: '-10%', left: '-5%', width: 500, height: 500, borderRadius: '50%', background: 'rgba(42,107,158,0.05)', filter: 'blur(80px)', pointerEvents: 'none' },
+  blob2: { position: 'absolute', bottom: '-10%', right: '-5%', width: 400, height: 400, borderRadius: '50%', background: 'rgba(14,75,99,0.05)', filter: 'blur(80px)', pointerEvents: 'none' },
+  blob3: { position: 'absolute', top: '40%', left: '40%', width: 300, height: 300, borderRadius: '50%', background: 'rgba(42,107,158,0.03)', filter: 'blur(60px)', pointerEvents: 'none' },
+  backBtn: { position: 'absolute', top: 16, left: 16, display: 'flex', alignItems: 'center', gap: 8, background: '#ffffff', border: '1px solid #e2e8f0', padding: '10px 18px', borderRadius: 12, color: '#334155', cursor: 'pointer', fontSize: 13, fontWeight: 600, zIndex: 300, boxShadow: '0 2px 6px rgba(0,0,0,0.05)' },
+  container: { position: 'relative', width: '100%', maxWidth: 440, background: '#ffffff', borderRadius: 32, boxShadow: '0 25px 60px rgba(0,0,0,0.1), 0 4px 16px rgba(0,0,0,0.04)', overflow: 'hidden', display: 'flex', border: '1px solid #e2e8f0' },
+  formPane: { flex: 1, padding: '40px 32px', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  form: { width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' },
+  logo: { width: 56, height: 56, borderRadius: 16, background: OVERLAY_GRAD, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16, boxShadow: '0 8px 20px rgba(42,107,158,0.2)', overflow: 'hidden' },
+  logoImg: { width: '100%', height: '100%', objectFit: 'contain', borderRadius: 12 },
+  heading: { fontSize: 24, fontWeight: 800, color: '#0f172a', margin: '0 0 6px' },
+  badge: { display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(42,107,158,0.08)', border: '1px solid rgba(42,107,158,0.2)', padding: '6px 14px', borderRadius: 40, fontSize: 12, fontWeight: 700, color: PRIMARY, marginBottom: 20 },
+  input: { width: '100%', padding: '13px 16px', background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: 12, fontSize: 14, color: '#0f172a', transition: 'all 0.2s', boxSizing: 'border-box', outline: 'none' },
+  passWrap: { position: 'relative', width: '100%' },
+  eyeBtn: { position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 6 },
+  submitBtn: { width: '100%', padding: '14px 0', background: BUTTON_GRAD, color: 'white', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer', letterSpacing: 0.3, boxShadow: '0 6px 18px rgba(30,90,135,0.3)', marginTop: 8 },
+  alertError: { width: '100%', padding: '10px 14px', borderRadius: 10, background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, boxSizing: 'border-box' },
+  alertSuccess: { width: '100%', padding: '10px 14px', borderRadius: 10, background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#15803d', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, boxSizing: 'border-box' },
+};

@@ -77,7 +77,7 @@ export default function Portal() {
     try {
       const res = await fetch(LECTURER_LOGIN_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
         body: JSON.stringify({
           email: lectEmail.trim().toLowerCase(),
           password: lectPassword,
@@ -122,7 +122,7 @@ export default function Portal() {
     try {
       const res = await fetch(REP_LOGIN_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
         body: JSON.stringify({
           email: repEmail.trim().toLowerCase(),
           password: repPassword,
