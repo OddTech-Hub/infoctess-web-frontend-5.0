@@ -592,17 +592,17 @@ export default function LecturerDashboard() {
     setLoadingLevel(true);
     try {
       const levelCode = lvl.code || lvl.id;
-      // 1. Fetch summary stats & group details
-      const resSum = await request(`/api/reports/summary/${levelCode}/`);
-      const jsonSum = await resSum.json();
-
-      // 2. Fetch all student attendance data for this level
-      const resBreak = await request(`/api/reports/breakdown/?level_code=${levelCode}`);
-      const jsonBreak = await resBreak.json();
-
-      // 3. Fetch flagged alert list
-      const resAlert = await request(`/api/alerts/?level_id=${lvl.id}`);
-      const jsonAlert = await resAlert.json();
+      // Fetch summary stats, student breakdown, and alerts in parallel for maximum speed
+      const [resSum, resBreak, resAlert] = await Promise.all([
+        request(`/api/reports/summary/${levelCode}/`),
+        request(`/api/reports/breakdown/?level_code=${levelCode}`),
+        request(`/api/alerts/?level_id=${lvl.id}`)
+      ]);
+      const [jsonSum, jsonBreak, jsonAlert] = await Promise.all([
+        resSum.json(),
+        resBreak.json(),
+        resAlert.json()
+      ]);
 
       if (jsonSum.success && jsonBreak.success) {
         const enrichedStudents = jsonBreak.data.map(s => ({

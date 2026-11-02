@@ -164,9 +164,12 @@ export default function CourseRepDashboard() {
     async function initializeRepDashboard() {
       setLoading(true);
       try {
-        // 1. Fetch courses
-        const res = await request("/api/courses/");
-        const json = await res.json();
+        // Fetch courses and sessions in parallel for faster loading
+        const [resCourses, _] = await Promise.all([
+          request("/api/courses/"),
+          fetchSessions()
+        ]);
+        const json = await resCourses.json();
         if (json.success && json.data.length > 0) {
           setCourses(json.data);
           setSelectedCourse(json.data[0].code);
@@ -174,9 +177,6 @@ export default function CourseRepDashboard() {
           setCourses(MY_COURSES);
           setSelectedCourse(MY_COURSES[0].code);
         }
-
-        // 2. Fetch sessions
-        await fetchSessions();
       } catch (err) {
         console.error("Error initializing Rep Dashboard:", err);
         setCourses(MY_COURSES);
