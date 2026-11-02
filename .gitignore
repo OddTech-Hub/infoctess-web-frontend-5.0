@@ -29,7 +29,7 @@ scratch/
 *.sw?
 
 # Sub-projects (managed in separate repositories)
-backend/
+/backend/
 mobile_student_app/
 .venv/
 __pycache__/
