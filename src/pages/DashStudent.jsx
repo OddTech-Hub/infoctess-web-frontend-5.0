@@ -13,6 +13,7 @@ import SecurityCheckModal from '../components/SecurityCheckModal';
 import AttendanceCardModal from '../components/AttendanceCardModal';
 
 export default function DashStudent() {
+  const navigate = useNavigate();
   // ROLE GUARD: Only Students admitted
   useEffect(() => {
     try {
@@ -34,7 +35,6 @@ export default function DashStudent() {
   }, [navigate]);
 
 
-  const navigate = useNavigate();
 
   // Student State
   const [student, setStudent] = useState(null);

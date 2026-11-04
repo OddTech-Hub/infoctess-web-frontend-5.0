@@ -593,6 +593,7 @@ function AlertDetailModal({ student, onClose, onConfirm, onDelete }) {
 // ─── MAIN ─────────────────────────────────────────────────────────────────────
 
 export default function LecturerDashboard() {
+  const navigate = useNavigate();
   // ROLE GUARD: Only Lecturers admitted
   useEffect(() => {
     try {
@@ -614,7 +615,6 @@ export default function LecturerDashboard() {
   }, [navigate]);
 
 
-  const navigate = useNavigate();
   const [showLevelModal, setShowLevelModal] = useState(true);
   const [selectedLevel, setSelectedLevel] = useState(null);
   const [loadingLevel, setLoadingLevel] = useState(false);

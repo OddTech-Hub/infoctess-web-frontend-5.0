@@ -298,6 +298,7 @@ function downloadSessionPDF(session) {
 // ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
 
 export default function CourseRepDashboard() {
+  const navigate = useNavigate();
   // ROLE GUARD: Only Course Reps admitted
   useEffect(() => {
     try {
@@ -319,7 +320,6 @@ export default function CourseRepDashboard() {
   }, [navigate]);
 
 
-  const navigate = useNavigate();
   const [tab, setTab]             = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sessions, setSessions]   = useState(INITIAL_SESSIONS);
