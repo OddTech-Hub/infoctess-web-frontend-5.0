@@ -692,7 +692,7 @@ export default function LecturerDashboard() {
       const json = await res.json();
       if (json.success) {
         const enriched = json.data.map(lvl => {
-          const theme = LEVEL_THEMES[lvl.id] || { color: "#3b82f6", bg: "#eff6ff", border: "#bfdbfe" };
+          const theme = LEVEL_THEMES[lvl.code] || LEVEL_THEMES[lvl.id] || { color: "#3b82f6", bg: "#eff6ff", border: "#bfdbfe" };
           return {
             id: lvl.id,
             code: lvl.code,
@@ -897,7 +897,7 @@ export default function LecturerDashboard() {
     loadCourseReps();
   }, [loadLevels, loadCourseReps]);
 
-  const selectLevel = async (lvl) => {
+  async function selectLevel(lvl) {
     setLoadingLevel(true);
     try {
       const levelCode = lvl.code || lvl.id;
@@ -1416,9 +1416,9 @@ export default function LecturerDashboard() {
                       <div style={{ color: "white", fontWeight: 700, fontSize: 16, marginBottom: 4 }}>{lvl.label}</div>
                       <div style={{ color: "#64748b", fontSize: 12, marginBottom: 8 }}>{lvl.year}</div>
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                        <span style={{ fontSize: 11, background: "#0f172a", color: "#94a3b8", padding: "2px 8px", borderRadius: 20 }}>{lvl.stats.courses} courses</span>
-                        <span style={{ fontSize: 11, background: "#0f172a", color: "#94a3b8", padding: "2px 8px", borderRadius: 20 }}>{lvl.studentsCount} students</span>
-                        {lvl.flaggedCount > 0 && (
+                        <span style={{ fontSize: 11, background: "#0f172a", color: "#94a3b8", padding: "2px 8px", borderRadius: 20 }}>{lvl.stats?.courses || 0} courses</span>
+                        <span style={{ fontSize: 11, background: "#0f172a", color: "#94a3b8", padding: "2px 8px", borderRadius: 20 }}>{(lvl.studentsCount !== undefined ? lvl.studentsCount : (lvl.students?.length || 0))} students</span>
+                        {(lvl.flaggedCount || lvl.stats?.flagged || 0) > 0 && (
                           <span style={{ fontSize: 11, background: "#7f1d1d", color: "#fca5a5", padding: "2px 8px", borderRadius: 20 }}>⚠ {lvl.flaggedCount} alerts</span>
                         )}
                       </div>
