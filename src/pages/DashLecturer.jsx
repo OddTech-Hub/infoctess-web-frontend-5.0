@@ -10,6 +10,7 @@ import {
 , Maximize2} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { request } from "../api/client";
+import { API_BASE_URL } from "../api/config";
 import { getRotatingSessionState } from "../utils/sessionCode";
 
 // ─── ALL LEVELS DATA ──────────────────────────────────────────────────────────
@@ -1098,7 +1099,7 @@ export default function LecturerDashboard() {
     try {
       const levelCode = selectedLevel ? selectedLevel.code || selectedLevel.id : 'L100';
       const token = sessionStorage.getItem('access_token');
-      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const API_BASE = API_BASE_URL;
       const response = await fetch(`${API_BASE}/api/reports/export/?level_code=${levelCode}`, {
         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       });

@@ -1,7 +1,7 @@
 import { API_BASE_URL } from './config';
 
 export function getAuthHeaders() {
-  const token = sessionStorage.getItem('access_token');
+  const token = sessionStorage.getItem('access_token') || sessionStorage.getItem('auth_token') || sessionStorage.getItem('token');
   return token ? { 'Authorization': `Bearer ${token}` } : {};
 }
 
