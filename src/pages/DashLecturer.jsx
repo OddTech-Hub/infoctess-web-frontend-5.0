@@ -643,6 +643,7 @@ export default function LecturerDashboard() {
 
   // QR session
   const [qrCourse, setQrCourse] = useState("");
+  const [sessionCourseName, setSessionCourseName] = useState("");
   const [timeWindow, setTimeWindow] = useState("10");
   const [allowedRadius, setAllowedRadius] = useState("50");
   const [sessionCode, setSessionCode] = useState(null);
@@ -1161,6 +1162,7 @@ export default function LecturerDashboard() {
       if (!json.success) throw new Error(json.message);
 
       setSessionActive(false);
+      setSessionCourseName("");
       setSessionCode(null);
       clearInterval(timerRef.current);
       await selectLevel(level);
