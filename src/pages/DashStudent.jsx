@@ -283,6 +283,9 @@ export default function DashStudent() {
 
       if (json.success) {
         // Backend accepted check-in! Security modal animation will finish and trigger onSuccessComplete
+        if (currentCheckingSession && json.data) {
+          currentCheckingSession.refId = json.data.ref_id || json.data.receipt_code;
+        }
         setSecurityError(null);
         if (student) loadStudentData(student);
       } else {
@@ -309,7 +312,7 @@ export default function DashStudent() {
       date: now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' }),
       time: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
       method: scanMethod === 'camera' ? 'qr_code' : 'session_code',
-      refId: `REC-${currentCheckingSession?.baseCode || 'ATT'}-${Math.floor(100000 + Math.random() * 900000)}`
+      refId: currentCheckingSession?.refId || `ATT-${currentCheckingSession?.baseCode || '001'}`
     };
 
     setActiveAttendanceCard(card);

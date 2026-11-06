@@ -504,7 +504,7 @@ export default function GetStarted() {
               <div style={styles.navbarLogoBox}>
                 <img src={infotessLogo} alt="INFOTESS Logo" style={styles.navbarLogo} />
               </div>
-              <span style={styles.navbarTitle}>INFOCTESS CLASS SMART ATTENDANCE</span>
+              <span style={styles.navbarTitle}>CAMPUS SMART ATTENDANCE</span>
             </div>
           </div>
         </header>
@@ -515,7 +515,7 @@ export default function GetStarted() {
             <div style={styles.heroLogoBox}>
               <img src={infotessLogo} alt="INFOTESS Logo" style={styles.heroLogo} />
             </div>
-            <h1 style={styles.heroTitle}>INFOCTESS</h1>
+            <h1 style={styles.heroTitle}>SMART ATTENDANCE</h1>
             {/* Exact text from screenshot */}
             <p style={styles.heroSubtitle}>CLASS SMART ATTENDANCE</p>
             <p style={styles.heroTagline}>Technology For Development</p>
@@ -574,9 +574,9 @@ export default function GetStarted() {
       {/* Scrolling footer marquee with gradient background */}
       <footer style={styles.footer}>
         <div style={styles.marquee}>
-          © 2026 INFOCTESS CLASS SMART ATTENDANCE. Developed by Oduro and Heis &nbsp;&nbsp;&nbsp;
-          © 2026 INFOCTESS CLASS SMART ATTENDANCE. Developed by Oduro and Heis &nbsp;&nbsp;&nbsp;
-          © 2026 INFOCTESS CLASS SMART ATTENDANCE. Developed by Oduro and Heis
+          © 2026 SMART ATTENDANCE. Developed by Oduro and Heis &nbsp;&nbsp;&nbsp;
+          © 2026 SMART ATTENDANCE. Developed by Oduro and Heis &nbsp;&nbsp;&nbsp;
+          © 2026 SMART ATTENDANCE. Developed by Oduro and Heis
         </div>
       </footer>
     </div>

@@ -164,7 +164,7 @@ function downloadSessionPDF(session) {
     <body>
       <div class="header">
         <div>
-          <div class="title">🎓 INFOCTESS UEW</div>
+          <div class="title">🎓 SMART ATTENDANCE</div>
           <div class="subtitle">Department of ICT Education — Official Attendance Sheet</div>
         </div>
         <div style="text-align: right;">
@@ -223,7 +223,7 @@ function downloadSessionPDF(session) {
       </table>
 
       <div class="footer">
-        Generated on ${new Date().toLocaleString()} · INFOCTESS Smart Attendance Management System · UEW
+        Generated on ${new Date().toLocaleString()} · Campus Smart Attendance Management System · UEW
       </div>
 
       <script>
@@ -1384,7 +1384,7 @@ export default function LecturerDashboard() {
                   <GraduationCap size={26} color="white" />
                 </div>
                 <div style={{ textAlign: "left" }}>
-                  <div style={{ color: "white", fontWeight: 800, fontSize: 22 }}>INFOCTESS</div>
+                  <div style={{ color: "white", fontWeight: 800, fontSize: 22 }}>SMART ATTENDANCE</div>
                   <div style={{ color: "#64748b", fontSize: 12 }}>Class Register · Lecturer Portal</div>
                 </div>
               </div>
@@ -1507,7 +1507,7 @@ export default function LecturerDashboard() {
           <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: "linear-gradient(135deg,#3b82f6,#1d4ed8)", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <GraduationCap size={20} color="white" />
           </div>
-          {sidebarOpen && <div><div style={{ color: "#f1f5f9", fontWeight: 700, fontSize: 15 }}>INFOCTESS</div><div style={{ fontSize: 10, color: "#64748b" }}>Class Register</div></div>}
+          {sidebarOpen && <div><div style={{ color: "#f1f5f9", fontWeight: 700, fontSize: 15 }}>SMART ATTENDANCE</div><div style={{ fontSize: 10, color: "#64748b" }}>Class Register</div></div>}
         </div>
 
         {sidebarOpen && level && (
@@ -2717,7 +2717,7 @@ export default function LecturerDashboard() {
                 </div>
                 <div>
                   <h2 style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", margin: 0 }}>{lecturerName}</h2>
-                  <div style={{ fontSize: 13, color: "#2563eb", fontWeight: 700, marginTop: 4 }}>LECTURER · DEPT OF ICT EDUCATION (INFOCTESS)</div>
+                  <div style={{ fontSize: 13, color: "#2563eb", fontWeight: 700, marginTop: 4 }}>LECTURER · SMART ATTENDANCE</div>
                   <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>University of Education, Winneba (UEW)</div>
                 </div>
               </div>

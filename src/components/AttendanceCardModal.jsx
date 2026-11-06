@@ -84,7 +84,7 @@ export default function AttendanceCardModal({
             </div>
             <div>
               <div style={{ fontSize: 11, letterSpacing: 1.5, fontWeight: 800, color: '#93c5fd', textTransform: 'uppercase' }}>
-                INFOCTESS ATTENDANCE SYSTEM
+                SMART ATTENDANCE SYSTEM
               </div>
               <div style={{ fontSize: 18, fontWeight: 900, color: 'white' }}>
                 Official Attendance Card

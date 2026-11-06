@@ -160,7 +160,7 @@ export default function Login() {
         <div style={S.formPane}>
           <form style={S.form} onSubmit={handleStudentSubmit}>
             <div style={S.logo}>
-              <img src="/infotess.png" alt="INFOCTESS" style={S.logoImg} onError={(e) => { e.target.style.display = 'none'; }} />
+              <img src="/infotess.png" alt="Smart Attendance" style={S.logoImg} onError={(e) => { e.target.style.display = 'none'; }} />
             </div>
 
             <h1 style={S.heading}>Student Portal</h1>
@@ -273,7 +273,7 @@ export default function Login() {
               First-Time Sign In Setup
             </h2>
             <p style={{ fontSize: 13, color: '#64748b', margin: '0 0 20px', lineHeight: 1.5 }}>
-              Welcome to INFOCTESS! Please set your personal secret password. You will use this password for all future logins.
+              Welcome to Smart Attendance! Please set your personal secret password. You will use this password for all future logins.
             </p>
 
             {changePassError && (
