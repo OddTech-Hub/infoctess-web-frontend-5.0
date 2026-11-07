@@ -891,7 +891,8 @@ export default function LecturerDashboard() {
     if (userStr) {
       try {
         const u = JSON.parse(userStr);
-        setLecturerName(u.first_name || "Lecturer");
+        const displayName = (u.first_name && u.last_name ? (u.first_name + " " + u.last_name) : (u.username || u.first_name || "Lecturer")).trim();
+        setLecturerName(displayName);
       } catch (e) { }
     }
 
