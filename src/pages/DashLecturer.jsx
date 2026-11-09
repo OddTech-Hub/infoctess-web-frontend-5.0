@@ -650,6 +650,21 @@ export default function LecturerDashboard() {
   const [rotatingToken, setRotatingToken] = useState('');
   const [rotatingSecs, setRotatingSecs] = useState(30);
   const [sessionActive, setSessionActive] = useState(false);
+  // Session & live attendance states
+  const [liveStudents, setLiveStudents] = useState([]);
+  const recentSessions = (sessions && sessions.length > 0) ? sessions : (level?.sessions || []);
+
+  // CSV upload modal states
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadFile, setUploadFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadFeedback, setUploadFeedback] = useState(null);
+
+  // View session student list modal states
+  const [viewListSession, setViewListSession] = useState(null);
+  const [viewListLoading, setViewListLoading] = useState(false);
+  const [viewListStudents, setViewListStudents] = useState([]);
+
   const [showProjector, setShowProjector] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const timerRef = useRef(null);
