@@ -679,6 +679,102 @@ export default function LecturerDashboard() {
   // Groups tab state
   const [selectedGroup, setSelectedGroup] = useState("");
   const [groupStudentFilter, setGroupStudentFilter] = useState("all");
+  const [showAddStudentModal, setShowAddStudentModal] = useState(false);
+  const [newStudentFirst, setNewStudentFirst] = useState("");
+  const [newStudentLast, setNewStudentLast] = useState("");
+  const [newStudentIndex, setNewStudentIndex] = useState("");
+  const [addingStudentLoading, setAddingStudentLoading] = useState(false);
+  const groupCsvInputRef = React.useRef(null);
+
+  const handleAddGroup = async () => {
+    try {
+      const nextGroupNum = groups.length + 1;
+      const res = await request("/api/courses/groups/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: `Group ${nextGroupNum}`,
+          level_id: level?.code || level?.id || "L100"
+        })
+      });
+      const json = await res.json();
+      if (json.success) {
+        const newGName = json.data?.name || `Group ${nextGroupNum}`;
+        setGroups(prev => [...prev, newGName]);
+        setSelectedGroup(newGName);
+        alert(`Successfully added ${newGName}!`);
+        if (level) selectLevel(level);
+      } else {
+        alert(json.message || "Failed to add group.");
+      }
+    } catch (err) {
+      alert("Error adding group: " + err.message);
+    }
+  };
+
+  const handleAddSingleStudent = async (e) => {
+    e.preventDefault();
+    if (!newStudentIndex.trim()) {
+      alert("Index number is required.");
+      return;
+    }
+    setAddingStudentLoading(true);
+    try {
+      const targetGroupName = selectedGroup || groups[0] || "Group 1";
+      const res = await request("/api/courses/students/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          first_name: newStudentFirst.trim(),
+          last_name: newStudentLast.trim(),
+          index_number: newStudentIndex.trim(),
+          group_name: targetGroupName,
+          level_code: level?.code || "L100"
+        })
+      });
+      const json = await res.json();
+      if (json.success) {
+        alert(json.message);
+        setShowAddStudentModal(false);
+        setNewStudentFirst("");
+        setNewStudentLast("");
+        setNewStudentIndex("");
+        if (level) selectLevel(level);
+      } else {
+        alert(json.message || "Failed to add student.");
+      }
+    } catch (err) {
+      alert("Error adding student: " + err.message);
+    } finally {
+      setAddingStudentLoading(false);
+    }
+  };
+
+  const handleGroupCSVUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const targetGroupName = selectedGroup || groups[0] || "Group 1";
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("group_name", targetGroupName);
+    try {
+      const res = await request(`/api/auth/students/import-csv/?group_name=${encodeURIComponent(targetGroupName)}`, {
+        method: "POST",
+        body: formData
+      });
+      const json = await res.json();
+      if (json.success) {
+        alert(json.message || `Successfully imported students into ${targetGroupName}!`);
+        if (level) selectLevel(level);
+      } else {
+        alert(json.message || "CSV import failed.");
+      }
+    } catch (err) {
+      alert("CSV upload error: " + err.message);
+    } finally {
+      e.target.value = "";
+    }
+  };
 
   const LEVEL_THEMES = {
     L100: { color: "#3b82f6", bg: "#eff6ff", border: "#bfdbfe" },
@@ -2388,49 +2484,77 @@ export default function LecturerDashboard() {
               ))}
             </div>
 
-            {/* All students table */}
-            {studentTab === "all" && (
-              <div style={{ background: "white", borderRadius: 16, border: "1px solid #e2e8f0", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                  <thead>
-                    <tr style={{ background: "#f8fafc" }}>
-                      {["#", "Student Name", "Index Number", "Device", "Attended", "Total", "Attendance"].map(h => (
-                        <th key={h} style={{ textAlign: "left", padding: "10px 16px", color: "#64748b", fontWeight: 600, fontSize: 12, borderBottom: "1px solid #e2e8f0" }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {level.students.map((row, i) => (
-                      <tr key={row.id} style={{ background: row.flagged ? "#fffbeb" : row.pct < 75 ? "#fff7f7" : "white", borderBottom: "1px solid #f1f5f9" }}>
-                        <td style={{ padding: "12px 16px", color: "#94a3b8" }}>{i + 1}</td>
-                        <td style={{ padding: "12px 16px" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <span style={{ fontWeight: 600 }}>{row.name}</span>
-                            {row.flagged && (
-                              <span style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "#fef3c7", color: "#b45309", padding: "1px 7px", borderRadius: 20, fontSize: 10, fontWeight: 700, cursor: "pointer" }}
-                                onClick={() => setAlertModalStudent(row)}>
-                                <AlertOctagon size={9} /> ALERT
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td style={{ padding: "12px 16px", color: "#64748b" }}>{row.index}</td>
-                        <td style={{ padding: "12px 16px" }}>
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: row.flagged ? "#fef3c7" : "#f1f5f9", color: row.flagged ? "#b45309" : "#64748b", padding: "3px 9px", borderRadius: 20, fontSize: 12 }}>
-                            {row.flagged && <AlertOctagon size={10} />}
-                            <Smartphone size={10} />
-                            {row.device}
-                          </span>
-                        </td>
-                        <td style={{ padding: "12px 16px" }}>{row.attended}</td>
-                        <td style={{ padding: "12px 16px" }}>{row.total}</td>
-                        <td style={{ padding: "12px 16px" }}>{pctBadge(row.pct)}</td>
+            {/* All students table sorted alphabetically with Group column */}
+            {studentTab === "all" && (() => {
+              const sortedStudentsList = [...(level.students || [])].sort((a, b) => 
+                (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" })
+              );
+
+              return (
+                <div style={{ background: "white", borderRadius: 16, border: "1px solid #e2e8f0", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ background: "#f8fafc" }}>
+                        {["#", "Student Name", "Index Number", "Group", "Device", "Attended", "Total", "Attendance Status"].map(h => (
+                          <th key={h} style={{ textAlign: "left", padding: "12px 16px", color: "#64748b", fontWeight: 700, fontSize: 12, borderBottom: "1px solid #e2e8f0" }}>{h}</th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                    </thead>
+                    <tbody>
+                      {sortedStudentsList.length === 0 ? (
+                        <tr>
+                          <td colSpan={8} style={{ textAlign: "center", padding: "36px", color: "#94a3b8", fontSize: 14 }}>
+                            No students enrolled yet. Navigate to the <strong>Groups</strong> tab to enroll students!
+                          </td>
+                        </tr>
+                      ) : (
+                        sortedStudentsList.map((row, i) => (
+                          <tr key={row.id || i} style={{ background: row.flagged ? "#fffbeb" : row.pct < 75 ? "#fff7f7" : "white", borderBottom: "1px solid #f1f5f9" }}>
+                            <td style={{ padding: "12px 16px", color: "#94a3b8" }}>{i + 1}</td>
+                            <td style={{ padding: "12px 16px" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <span style={{ fontWeight: 600, color: "#0f172a" }}>{row.name}</span>
+                                {row.flagged && (
+                                  <span style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "#fef3c7", color: "#b45309", padding: "1px 7px", borderRadius: 20, fontSize: 10, fontWeight: 700, cursor: "pointer" }}
+                                    onClick={() => setAlertModalStudent(row)}>
+                                    <AlertOctagon size={9} /> ALERT
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td style={{ padding: "12px 16px", color: "#64748b", fontFamily: "monospace" }}>{row.index}</td>
+                            <td style={{ padding: "12px 16px" }}>
+                              <span style={{
+                                display: "inline-block",
+                                background: "#eff6ff",
+                                color: "#1d4ed8",
+                                padding: "3px 10px",
+                                borderRadius: 20,
+                                fontSize: 12,
+                                fontWeight: 700,
+                                border: "1px solid #bfdbfe"
+                              }}>
+                                {row.group || "Unassigned"}
+                              </span>
+                            </td>
+                            <td style={{ padding: "12px 16px" }}>
+                              <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: row.flagged ? "#fef3c7" : "#f1f5f9", color: row.flagged ? "#b45309" : "#64748b", padding: "3px 9px", borderRadius: 20, fontSize: 12 }}>
+                                {row.flagged && <AlertOctagon size={10} />}
+                                <Smartphone size={10} />
+                                {row.device}
+                              </span>
+                            </td>
+                            <td style={{ padding: "12px 16px", fontWeight: 600 }}>{row.attended}</td>
+                            <td style={{ padding: "12px 16px", color: "#64748b" }}>{row.total}</td>
+                            <td style={{ padding: "12px 16px" }}>{pctBadge(row.pct)}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
 
             {/* Device alerts tab */}
             {studentTab === "flagged" && (
@@ -2562,6 +2686,34 @@ export default function LecturerDashboard() {
                   </div>
                 );
               })}
+
+              {/* Add Group Card */}
+              <div
+                onClick={handleAddGroup}
+                style={{
+                  background: "#f8fafc",
+                  borderRadius: 16,
+                  padding: "18px 20px",
+                  border: "2px dashed #93c5fd",
+                  boxShadow: "0 1px 4px rgba(0,0,0,0.02)",
+                  cursor: "pointer",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  minHeight: 110,
+                  transition: "all 0.2s ease"
+                }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = "#2563eb"}
+                onMouseLeave={e => e.currentTarget.style.borderColor = "#93c5fd"}
+              >
+                <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#eff6ff", color: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 20, border: "1px solid #bfdbfe" }}>
+                  +
+                </div>
+                <div style={{ fontWeight: 700, fontSize: 14, color: "#1e3a5f" }}>Add Group</div>
+                <div style={{ fontSize: 11, color: "#64748b" }}>Create Group {groups.length + 1}</div>
+              </div>
             </div>
 
             {/* Group Detailed Roster Container */}
@@ -2601,6 +2753,38 @@ export default function LecturerDashboard() {
                       <p style={{ fontSize: 12, color: "#64748b", margin: "4px 0 0" }}>
                         Students sorted by attendance. Low attendance rate (&lt;40%) placed at the bottom.
                       </p>
+                    </div>
+
+                    {/* Group Action Buttons: Add Student & Bulk CSV */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                      <input 
+                        type="file" 
+                        ref={groupCsvInputRef} 
+                        onChange={handleGroupCSVUpload} 
+                        accept=".csv" 
+                        style={{ display: "none" }} 
+                      />
+                      <button
+                        onClick={() => groupCsvInputRef.current?.click()}
+                        style={{
+                          display: "inline-flex", alignItems: "center", gap: 6,
+                          background: "#eff6ff", color: "#2563eb", border: "1px solid #bfdbfe",
+                          padding: "8px 14px", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer"
+                        }}
+                      >
+                        📥 Upload CSV to {activeGroupName}
+                      </button>
+
+                      <button
+                        onClick={() => setShowAddStudentModal(true)}
+                        style={{
+                          display: "inline-flex", alignItems: "center", gap: 6,
+                          background: "#1e3a5f", color: "#60a5fa", border: "none",
+                          padding: "8px 14px", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer"
+                        }}
+                      >
+                        + Add Student to {activeGroupName}
+                      </button>
                     </div>
 
                     {/* Category Filter Tabs */}
