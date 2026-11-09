@@ -1,3 +1,4 @@
+import React from "react";
 import ProjectorModal from "../components/ProjectorModal";
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
@@ -144,18 +145,6 @@ function QRVisual({ code, size = 200 }) {
           opacity: imgLoaded ? 1 : 0,
           transition: "opacity 0.2s ease"
         }}
-      />
-      {/* AUDITORIUM PROJECTOR MODAL */}
-      <ProjectorModal
-        isOpen={showProjector}
-        onClose={() => setShowProjector(false)}
-        sessionId={activeSession?.id}
-        courseCode={activeSession?.course}
-        courseName={activeSession?.courseName}
-        rotatingToken={rotatingToken}
-        rotatingSecs={rotatingSecs}
-        totalWindow={90}
-        sessionCountdown={sessionCountdown}
       />
     </div>
   );
@@ -1069,6 +1058,18 @@ export default function CourseRepDashboard() {
           </div>
         </div>
       )}
+      {/* AUDITORIUM PROJECTOR MODAL */}
+      <ProjectorModal
+        isOpen={showProjector}
+        onClose={() => setShowProjector(false)}
+        sessionId={activeSession?.id}
+        courseCode={activeSession?.course}
+        courseName={activeSession?.courseName}
+        rotatingToken={rotatingToken}
+        rotatingSecs={rotatingSecs}
+        totalWindow={90}
+        sessionCountdown={sessionCountdown}
+      />
     </div>
   );
 }

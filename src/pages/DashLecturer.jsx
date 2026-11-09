@@ -1,5 +1,5 @@
 import ProjectorModal from "../components/ProjectorModal";
-import { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   BookOpen, Users, AlertTriangle, BarChart2, QrCode,
   TrendingUp, Settings, LogOut, LayoutDashboard,
@@ -684,7 +684,7 @@ export default function LecturerDashboard() {
   const [newStudentLast, setNewStudentLast] = useState("");
   const [newStudentIndex, setNewStudentIndex] = useState("");
   const [addingStudentLoading, setAddingStudentLoading] = useState(false);
-  const groupCsvInputRef = React.useRef(null);
+  const groupCsvInputRef = useRef(null);
 
   const handleAddGroup = async () => {
     try {
