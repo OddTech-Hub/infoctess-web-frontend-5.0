@@ -6,7 +6,7 @@ import {
   FileText, GraduationCap, ChevronDown, RefreshCw,
   Download, Upload, FileSpreadsheet, Eye, PanelLeftClose, PanelLeftOpen, Clock,
   XCircle, Loader, Layers, Check, ChevronRight,
-  Smartphone, AlertOctagon, Shield, Wifi, X, Info
+  Smartphone, AlertOctagon, Shield, Wifi, X, Info, Sparkles
 , Maximize2} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { request } from "../api/client";
@@ -637,6 +637,7 @@ export default function LecturerDashboard() {
   // Loaded level states
   const [students, setStudents] = useState([]);
   const [courses, setCourses] = useState([]);
+  const [allDepartmentCourses, setAllDepartmentCourses] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [groups, setGroups] = useState([]);
   const [stats, setStats] = useState({ courses: 0, groups: 0, lowAttendance: 0, flagged: 0 });
@@ -1067,6 +1068,7 @@ export default function LecturerDashboard() {
 
         setStudents(enrichedStudents);
         setCourses(coursesList);
+        setAllDepartmentCourses(jsonSum.data.allCourses || []);
         setSessions(formattedSessions);
         setGroups(groupNames);
         setStats(jsonSum.data.stats);
@@ -1543,67 +1545,6 @@ export default function LecturerDashboard() {
                 ))}
               </div>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* ══ MANAGE COURSES MODAL ══ */}
-      {showCoursesModal && (
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 9999,
-          background: "rgba(15, 23, 42, 0.75)", backdropFilter: "blur(4px)",
-          display: "flex", alignItems: "center", justifyContent: "center", padding: 24
-        }}>
-          <div style={{ width: "100%", maxWidth: 500, background: "white", borderRadius: 20, padding: 28, boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1)", animation: "slideUp 0.3s ease" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <h2 style={{ fontSize: 20, fontWeight: 800, color: "#0f172a", margin: 0 }}>Manage Courses</h2>
-              <button onClick={() => setShowCoursesModal(false)} style={{ background: "none", border: "none", color: "#64748b", fontSize: 20, cursor: "pointer", fontWeight: 700 }}>×</button>
-            </div>
-
-            {/* Add Course Form */}
-            <form onSubmit={handleAddCourse} style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-              <input
-                type="text"
-                placeholder="Course Code (e.g. INF411)"
-                value={newCourseCode}
-                onChange={e => setNewCourseCode(e.target.value)}
-                required
-                style={{ flex: 0.8, padding: "8px 12px", border: "1px solid #cbd5e1", borderRadius: 8, fontSize: 13 }}
-              />
-              <input
-                type="text"
-                placeholder="Course Name"
-                value={newCourseName}
-                onChange={e => setNewCourseName(e.target.value)}
-                required
-                style={{ flex: 1.2, padding: "8px 12px", border: "1px solid #cbd5e1", borderRadius: 8, fontSize: 13 }}
-              />
-              <button type="submit" disabled={coursesLoading} style={{ padding: "8px 16px", background: "#3b82f6", color: "white", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-                {coursesLoading ? "..." : "Add"}
-              </button>
-            </form>
-
-            {/* Courses List */}
-            <div style={{ maxHeight: 250, overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: 10 }}>
-              {courses.length === 0 ? (
-                <div style={{ padding: 20, textAlign: "center", color: "#94a3b8", fontSize: 13 }}>No courses registered.</div>
-              ) : (
-                courses.map(c => (
-                  <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderBottom: "1px solid #e2e8f0" }}>
-                    <div>
-                      <span style={{ fontWeight: 700, color: "#1e293b", fontSize: 13, marginRight: 8 }}>{c.code}</span>
-                      <span style={{ color: "#64748b", fontSize: 13 }}>{c.name}</span>
-                    </div>
-                    <button
-                      onClick={() => handleDeleteCourse(c.code)}
-                      style={{ background: "none", border: "none", color: "#ef4444", fontSize: 12, cursor: "pointer", fontWeight: 600 }}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
           </div>
         </div>
       )}
@@ -3102,6 +3043,35 @@ export default function LecturerDashboard() {
             </div>
 
             <div style={{ padding: "24px" }}>
+              {/* Quick-add unassigned department courses */}
+              {allDepartmentCourses && allDepartmentCourses.filter(ac => !courses.some(c => c.code === ac.code)).length > 0 && (
+                <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 12, padding: 14, marginBottom: 16 }}>
+                  <div style={{ fontWeight: 700, fontSize: 12, color: "#1e40af", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                    <Sparkles size={14} color="#3b82f6" /> Available Department Courses for {level?.label || level?.code || 'this Level'}:
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {allDepartmentCourses.filter(ac => !courses.some(c => c.code === ac.code)).map(ac => (
+                      <button
+                        key={ac.code}
+                        type="button"
+                        onClick={() => {
+                          setNewCourseCode(ac.code);
+                          setNewCourseName(ac.name);
+                        }}
+                        style={{
+                          background: "white", border: "1px solid #93c5fd", borderRadius: 8,
+                          padding: "5px 10px", fontSize: 11, fontWeight: 700, color: "#1d4ed8",
+                          cursor: "pointer", display: "flex", alignItems: "center", gap: 4
+                        }}
+                        title={`Click to fill: ${ac.code} — ${ac.name}`}
+                      >
+                        + {ac.code} <span style={{ opacity: 0.75, fontWeight: 500 }}>({ac.name})</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Form to Add New Course */}
               <form onSubmit={handleAddCourse} style={{ background: "#f8fafc", padding: 18, borderRadius: 14, border: "1px solid #e2e8f0", marginBottom: 20 }}>
                 <div style={{ fontWeight: 700, fontSize: 14, color: "#0f172a", marginBottom: 12 }}>➕ Add New Course to My Dashboard</div>
