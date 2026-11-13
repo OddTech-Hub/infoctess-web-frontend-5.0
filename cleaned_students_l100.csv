@@ -1,0 +1,101 @@
+index_number,first_name,last_name,name,email,level_id,group,role,password
+5261000321,Afful,Kwame Emmanuel,Afful Kwame Emmanuel,5261000321@st.uew.edu.gh,L100,Group 1,student,password123
+5261000067,Ameyaw,Kwaku Orlando,Ameyaw Kwaku Orlando,5261000067@st.uew.edu.gh,L100,Group 1,student,password123
+5261000106,Arthur-Darko,Joseph Prince,Arthur-Darko Joseph Prince,5261000106@st.uew.edu.gh,L100,Group 1,student,password123
+5261000372,Asamoah,Sika Obed,Asamoah Sika Obed,5261000372@st.uew.edu.gh,L100,Group 1,student,password123
+5261000105,Asokwah,John Wesley Junior,Asokwah John Wesley Junior,5261000105@st.uew.edu.gh,L100,Group 1,student,password123
+5261000353,Bright,Effah,Bright Effah,5261000353@st.uew.edu.gh,L100,Group 1,student,password123
+5261000330,Bright,Gotah,Bright Gotah,5261000330@st.uew.edu.gh,L100,Group 1,student,password123
+5261000318,Christine,Ahiadebu,Christine Ahiadebu,5261000318@st.uew.edu.gh,L100,Group 1,student,password123
+5261000351,Ewurama,Cobbah-Biney,Ewurama Cobbah-Biney,5261000351@st.uew.edu.gh,L100,Group 1,student,password123
+5261000110,Bismark,Appiah Kubi,Bismark Appiah Kubi,5261000110@st.uew.edu.gh,L100,Group 2,student,password123
+5261000265,Bless,Adikah,Bless Adikah,5261000265@st.uew.edu.gh,L100,Group 2,student,password123
+5261000064,Derrick,Boateng,Derrick Boateng,5261000064@st.uew.edu.gh,L100,Group 2,student,password123
+5261000267,Daniel,Duodu,Daniel Duodu,5261000267@st.uew.edu.gh,L100,Group 2,student,password123
+5261000409,Derrick,Dennis Nyarkoh,Derrick Dennis Nyarkoh,5261000409@st.uew.edu.gh,L100,Group 2,student,password123
+5262140024,David,Coleman,David Coleman,5262140024@st.uew.edu.gh,L100,Group 2,student,password123
+5261000200,Ebenezer,Kofi Kwakye,Ebenezer Kofi Kwakye,5261000200@st.uew.edu.gh,L100,Group 2,student,password123
+5261000413,Elvis,Eyram Alato,Elvis Eyram Alato,5261000413@st.uew.edu.gh,L100,Group 2,student,password123
+5261000155,Philomina,Otoo Gyamfi,Philomina Otoo Gyamfi,5261000155@st.uew.edu.gh,L100,Group 2,student,password123
+5261000217,Eyram,Amenakpor,Eyram Amenakpor,5261000217@st.uew.edu.gh,L100,Group 2,student,password123
+5261000111,Ebenezer,Nyarko,Ebenezer Nyarko,5261000111@st.uew.edu.gh,L100,Group 3,student,password123
+5261000042,Emmanuel,Owusu Twumasi,Emmanuel Owusu Twumasi,5261000042@st.uew.edu.gh,L100,Group 3,student,password123
+5261000302,Emmanuel,Sackey,Emmanuel Sackey,5261000302@st.uew.edu.gh,L100,Group 3,student,password123
+5261000094,Oliver,Owusu Mensah,Oliver Owusu Mensah,5261000094@st.uew.edu.gh,L100,Group 3,student,password123
+5261000376,Gershon,Abusah,Gershon Abusah,5261000376@st.uew.edu.gh,L100,Group 3,student,password123
+5261000347,Godfred,Afetsi Agbevadi,Godfred Afetsi Agbevadi,5261000347@st.uew.edu.gh,L100,Group 3,student,password123
+5261000340,Godfred,Owusu Boateng,Godfred Owusu Boateng,5261000340@st.uew.edu.gh,L100,Group 3,student,password123
+5261000350,Frank,Amoako,Frank Amoako,5261000350@st.uew.edu.gh,L100,Group 3,student,password123
+5262150001,Antwi,Priscilla,Antwi Priscilla,5262150001@st.uew.edu.gh,L100,Group 3,student,password123
+5262880883,Christabel,Antwi,Christabel Antwi,5262880883@st.uew.edu.gh,L100,Group 3,student,password123
+5261000150,Frimpong,Richard,Frimpong Richard,5261000150@st.uew.edu.gh,L100,Group 4,student,password123
+5261000036,Kofi,Yevo,Kofi Yevo,5261000036@st.uew.edu.gh,L100,Group 4,student,password123
+5261000090,James,Tusah,James Tusah,5261000090@st.uew.edu.gh,L100,Group 4,student,password123
+5261000401,Jonathan,Ocran,Jonathan Ocran,5261000401@st.uew.edu.gh,L100,Group 4,student,password123
+5261000174,Magnus,Adzoko,Magnus Adzoko,5261000174@st.uew.edu.gh,L100,Group 4,student,password123
+5261000361,Mensah,Atta Timothy Junior,Mensah Atta Timothy Junior,5261000361@st.uew.edu.gh,L100,Group 4,student,password123
+5261000102,Michael,Adokah,Michael Adokah,5261000102@st.uew.edu.gh,L100,Group 4,student,password123
+5261000253,Mohammed,Razak,Mohammed Razak,5261000253@st.uew.edu.gh,L100,Group 4,student,password123
+5261500118,Anita,Kambake,Anita Kambake,5261500118@st.uew.edu.gh,L100,Group 4,student,password123
+5261000241,Florence,Baah,Florence Baah,5261000241@st.uew.edu.gh,L100,Group 4,student,password123
+5262140002,David,Odame Agyeiku,David Odame Agyeiku,5262140002@st.uew.edu.gh,L100,Group 5,student,password123
+5261000433,Opare,Wilford Kwadwo,Opare Wilford Kwadwo,5261000433@st.uew.edu.gh,L100,Group 5,student,password123
+5261000397,Prince,Owusu Mensah,Prince Owusu Mensah,5261000397@st.uew.edu.gh,L100,Group 5,student,password123
+5261000177,Raphael,Narh,Raphael Narh,5261000177@st.uew.edu.gh,L100,Group 5,student,password123
+5261000040,Samuel,Daniel Yankey,Samuel Daniel Yankey,5261000040@st.uew.edu.gh,L100,Group 5,student,password123
+5262150002,Richmond,Frimpong,Richmond Frimpong,5262150002@st.uew.edu.gh,L100,Group 5,student,password123
+5261000286,Richmond,Nketiah,Richmond Nketiah,5261000286@st.uew.edu.gh,L100,Group 5,student,password123
+5261063814,Samuel,Acheampong,Samuel Acheampong,5261063814@st.uew.edu.gh,L100,Group 5,student,password123
+5261488756,Richardson,Abeiku Sagoe,Richardson Abeiku Sagoe,5261488756@st.uew.edu.gh,L100,Group 5,student,password123
+5261000045,Amina,Abdul Nasir,Amina Abdul Nasir,5261000045@st.uew.edu.gh,L100,Group 5,student,password123
+5261000061,Samuel,Ansah,Samuel Ansah,5261000061@st.uew.edu.gh,L100,Group 6,student,password123
+5261000173,Shadrack,Akomeah,Shadrack Akomeah,5261000173@st.uew.edu.gh,L100,Group 6,student,password123
+5261000437,Shadrack,Nyarko,Shadrack Nyarko,5261000437@st.uew.edu.gh,L100,Group 6,student,password123
+5261000280,Solomon,Nyaxo,Solomon Nyaxo,5261000280@st.uew.edu.gh,L100,Group 6,student,password123
+5261000373,Wonder,Agbemazi,Wonder Agbemazi,5261000373@st.uew.edu.gh,L100,Group 6,student,password123
+5261000303,Edmund,Ambasaki,Edmund Ambasaki,5261000303@st.uew.edu.gh,L100,Group 6,student,password123
+5261577706,Obonkor,Emmanuel,Obonkor Emmanuel,5261577706@st.uew.edu.gh,L100,Group 6,student,password123
+5261000215,Oduro,Nimako Emmanuel,Oduro Nimako Emmanuel,5261000215@st.uew.edu.gh,L100,Group 6,student,password123
+5261690262,Anita,Entsiwah,Anita Entsiwah,5261690262@st.uew.edu.gh,L100,Group 6,student,password123
+5261201171,Hasana,Sori Idriis,Hasana Sori Idriis,5261201171@st.uew.edu.gh,L100,Group 6,student,password123
+5261946979,Dorothy,Serwaa Ofosu,Dorothy Serwaa Ofosu,5261946979@st.uew.edu.gh,L100,Group 7,student,password123
+5261000148,Mutala,Darnor,Mutala Darnor,5261000148@st.uew.edu.gh,L100,Group 7,student,password123
+5261000281,Frank,Mensah,Frank Mensah,5261000281@st.uew.edu.gh,L100,Group 7,student,password123
+5261000114,Ohene,Bylon Twumasi,Ohene Bylon Twumasi,5261000114@st.uew.edu.gh,L100,Group 7,student,password123
+5261000012,Samuel,Adjetey Tetteh,Samuel Adjetey Tetteh,5261000012@st.uew.edu.gh,L100,Group 7,student,password123
+5261233501,Emmanuel,Tay Dela,Emmanuel Tay Dela,5261233501@st.uew.edu.gh,L100,Group 7,student,password123
+5261000001,Paa,Kwasi Okoampah,Paa Kwasi Okoampah,5261000001@st.uew.edu.gh,L100,Group 7,student,password123
+5261000326,Samuel,Seyram Semey,Samuel Seyram Semey,5261000326@st.uew.edu.gh,L100,Group 7,student,password123
+5261000241,Florence,Baah,Florence Baah,5261000241@st.uew.edu.gh,L100,Group 7,student,password123
+5262140011,Disu,Efua Yetty,Disu Efua Yetty,5262140011@st.uew.edu.gh,L100,Group 7,student,password123
+907982,Benjamin,Adjalo,Benjamin Adjalo,907982@st.uew.edu.gh,L100,Group 8,student,password123
+412149,Benjamin,Boateng Akrofi,Benjamin Boateng Akrofi,412149@st.uew.edu.gh,L100,Group 8,student,password123
+985618,Benjamin,Nkrumah,Benjamin Nkrumah,985618@st.uew.edu.gh,L100,Group 8,student,password123
+122485,Blessed,Fiifi Koomson,Blessed Fiifi Koomson,122485@st.uew.edu.gh,L100,Group 8,student,password123
+5261000304,Charles,Kportufe,Charles Kportufe,5261000304@st.uew.edu.gh,L100,Group 8,student,password123
+5261000292,Christopher,Kwakye,Christopher Kwakye,5261000292@st.uew.edu.gh,L100,Group 8,student,password123
+5261000339,Daniel,Odoom,Daniel Odoom,5261000339@st.uew.edu.gh,L100,Group 8,student,password123
+5261000010,Dennis,Bempong,Dennis Bempong,5261000010@st.uew.edu.gh,L100,Group 8,student,password123
+5261000183,Victoria,Ababio Andy,Victoria Ababio Andy,5261000183@st.uew.edu.gh,L100,Group 8,student,password123
+5261000345,Iren,Abena Agyei Adubofour,Iren Abena Agyei Adubofour,5261000345@st.uew.edu.gh,L100,Group 8,student,password123
+065664,Owura,Asare,Owura Asare,065664@st.uew.edu.gh,L100,Group 9,student,password123
+5261000249,Owusu,George Adoma,Owusu George Adoma,5261000249@st.uew.edu.gh,L100,Group 9,student,password123
+5261000033,Prince,Berkoh,Prince Berkoh,5261000033@st.uew.edu.gh,L100,Group 9,student,password123
+5261000085,Reinford,Paa kwesi Assiyaw,Reinford Paa kwesi Assiyaw,5261000085@st.uew.edu.gh,L100,Group 9,student,password123
+5261000252,Mohammed,Ishaque,Mohammed Ishaque,5261000252@st.uew.edu.gh,L100,Group 9,student,password123
+5261000360,Nobi,Bright,Nobi Bright,5261000360@st.uew.edu.gh,L100,Group 9,student,password123
+5261000209,Owusu,Julius,Owusu Julius,5261000209@st.uew.edu.gh,L100,Group 9,student,password123
+5261000131,Emmanuel,Marfo,Emmanuel Marfo,5261000131@st.uew.edu.gh,L100,Group 9,student,password123
+5271000409,Priscilla,Okaidea Bekoe,Priscilla Okaidea Bekoe,5271000409@st.uew.edu.gh,L100,Group 9,student,password123
+5261000201,Jennifer,Esi Eshun,Jennifer Esi Eshun,5261000201@st.uew.edu.gh,L100,Group 9,student,password123
+5262150003,Mensah,Bernardson,Mensah Bernardson,5262150003@st.uew.edu.gh,L100,Group 10,student,password123
+5261000121,Samuel,Tawiah,Samuel Tawiah,5261000121@st.uew.edu.gh,L100,Group 10,student,password123
+5262551597,Mathias,Anyanful,Mathias Anyanful,5262551597@st.uew.edu.gh,L100,Group 10,student,password123
+5261000163,Abel,Yeboah Opoku,Abel Yeboah Opoku,5261000163@st.uew.edu.gh,L100,Group 10,student,password123
+5261000027,Aboagye,Ayei Kelvin,Aboagye Ayei Kelvin,5261000027@st.uew.edu.gh,L100,Group 10,student,password123
+5261000216,Akpariba,Emmanuel Awinbe,Akpariba Emmanuel Awinbe,5261000216@st.uew.edu.gh,L100,Group 10,student,password123
+5261000120,Akumkel,Salifu Mohammed,Akumkel Salifu Mohammed,5261000120@st.uew.edu.gh,L100,Group 10,student,password123
+5261000050,Baah,Junior Isaac,Baah Junior Isaac,5261000050@st.uew.edu.gh,L100,Group 10,student,password123
+5261000115,Bennedict,Bright Ayrakwah,Bennedict Bright Ayrakwah,5261000115@st.uew.edu.gh,L100,Group 10,student,password123
+5261000082,Priscilla,Lorlornyo Kuewu,Priscilla Lorlornyo Kuewu,5261000082@st.uew.edu.gh,L100,Group 10,student,password123
+5261000018,Klokpa,Alberta,Klokpa Alberta,5261000018@st.uew.edu.gh,L100,Group 10,student,password123

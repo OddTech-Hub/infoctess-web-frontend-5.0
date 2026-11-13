@@ -24,10 +24,10 @@ export default function DashStudent() {
       }
       const user = JSON.parse(stored);
       const role = (user.role || "").toLowerCase();
-      if (role !== "student") {
-        if (role === "lecturer") navigate("/lec");
-        else if (role === "rep") navigate("/rep");
-        else navigate("/login");
+      if (role === "lecturer") {
+        navigate("/lec");
+      } else if (role !== "student" && role !== "rep") {
+        navigate("/login");
       }
     } catch (e) {
       navigate("/login");

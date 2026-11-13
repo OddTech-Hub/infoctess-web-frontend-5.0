@@ -312,8 +312,8 @@ export default function CourseRepDashboard() {
   const [tab, setTab]             = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sessions, setSessions]   = useState(INITIAL_SESSIONS);
-  const [courses, setCourses]     = useState(MY_COURSES);
-  const [selectedCourse, setSelectedCourse] = useState(MY_COURSES[0].code);
+  const [courses, setCourses]     = useState([]);
+  const [selectedCourse, setSelectedCourse] = useState("");
   const [timeWindow, setTimeWindow] = useState("10");
   const [loading, setLoading]     = useState(true);
 
@@ -533,7 +533,7 @@ export default function CourseRepDashboard() {
   };
 
   const openSession = async () => {
-    if (!selectedCourse) return;
+    if (!selectedCourse) { alert("No course assigned. Contact your lecturer or administrator."); return; }
     try {
       const res = await request("/api/sessions/create/", {
         method: "POST",
@@ -659,11 +659,11 @@ export default function CourseRepDashboard() {
             }}>
               ⚙️ Session Settings ({timeWindow}m • {allowedRadius}m)
             </button>
-            <button onClick={openSession} style={{
+            <button onClick={openSession} disabled={courses.length === 0} style={{
               display: "flex", alignItems: "center", gap: 8, padding: "10px 20px",
-              borderRadius: 10, background: "linear-gradient(135deg,#1d4ed8,#2563eb)",
-              color: "white", border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer",
-              boxShadow: "0 4px 12px rgba(37,99,235,0.25)"
+              borderRadius: 10, background: courses.length === 0 ? "#94a3b8" : "linear-gradient(135deg,#1d4ed8,#2563eb)",
+              color: "white", border: "none", fontWeight: 700, fontSize: 13, cursor: courses.length === 0 ? "not-allowed" : "pointer",
+              boxShadow: courses.length === 0 ? "none" : "0 4px 12px rgba(37,99,235,0.25)"
             }}>
               <Plus size={16} /> Open QR Session
             </button>
@@ -691,6 +691,19 @@ export default function CourseRepDashboard() {
             );
           })}
         </div>
+
+        {courses.length === 0 && (
+          <div style={{ background: "white", borderRadius: 16, border: "1px solid #e2e8f0", padding: "40px 24px", textAlign: "center", marginBottom: 28 }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>📚</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#334155", marginBottom: 8 }}>No Courses Assigned</div>
+            <div style={{ fontSize: 13, color: "#64748b", maxWidth: 400, margin: "0 auto" }}>
+              You have not been assigned as Course Representative to any course yet. Contact your lecturer or administrator to get assigned.
+            </div>
+            <a href="/login" style={{ display: "inline-flex", alignItems: "center", gap: 8, marginTop: 20, padding: "10px 20px", borderRadius: 10, background: "#eff6ff", color: "#2563eb", fontWeight: 700, fontSize: 13, textDecoration: "none", border: "1px solid #bfdbfe" }}>
+              🎓 Open Student Attendance Portal
+            </a>
+          </div>
+        )}
 
         {/* TAB CONTENT */}
         {tab === "dashboard" && (
