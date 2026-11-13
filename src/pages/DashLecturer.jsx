@@ -618,6 +618,7 @@ export default function LecturerDashboard() {
 
   const [showLevelModal, setShowLevelModal] = useState(true);
   const [selectedLevel, setSelectedLevel] = useState(null);
+  const level = selectedLevel;
   const [loadingLevel, setLoadingLevel] = useState(false);
 
   const [navItem, setNavItem] = useState("dashboard");
@@ -949,8 +950,6 @@ export default function LecturerDashboard() {
     }
   };
 
-  const level = selectedLevel;
-
   const getInitials = (name) => {
     return name ? name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() : "ST";
   };
@@ -1168,10 +1167,10 @@ export default function LecturerDashboard() {
     if (!selectedLevel) return;
     const syncInterval = setInterval(() => {
       silentRefreshLevel(selectedLevel);
-    }, 1500);
+    }, 3000);
 
     return () => clearInterval(syncInterval);
-  }, [selectedLevel, silentRefreshLevel]);
+  }, [selectedLevel?.id, selectedLevel?.code, silentRefreshLevel]);
 
   // Alert actions
   const handleConfirmAlert = async (student) => {

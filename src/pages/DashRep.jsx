@@ -409,8 +409,12 @@ export default function CourseRepDashboard() {
     }
   }, []);
 
-  const fetchCheckedInStudents = useCallback(async () => {
-    setLoadingStudents(true);
+  const hasLoadedStudentsRef = useRef(false);
+
+  const fetchCheckedInStudents = useCallback(async (silent = false) => {
+    if (!silent && !hasLoadedStudentsRef.current) {
+      setLoadingStudents(true);
+    }
     try {
       const res = await request("/api/reports/breakdown/");
       const json = await res.json();
@@ -423,6 +427,7 @@ export default function CourseRepDashboard() {
           time: `Latest: ${s.pct}% rate`,
           avatar: getInitials(s.name)
         }));
+        hasLoadedStudentsRef.current = mapped.length > 0;
         setCheckedInStudents(mapped);
       }
     } catch (err) {
@@ -507,14 +512,14 @@ export default function CourseRepDashboard() {
     return () => clearInterval(rotInterval);
   }, [activeSession]);
 
-  // ── REAL-TIME BACKGROUND SYNC (Every 1.5s for instant feedback across devices) ──
+  // ── REAL-TIME BACKGROUND SYNC (Every 3s for instant feedback without flicker) ──
   useEffect(() => {
     const pollInterval = setInterval(() => {
       fetchSessions();
       if (tab === "students") {
-        fetchCheckedInStudents();
+        fetchCheckedInStudents(true);
       }
-    }, 1500);
+    }, 3000);
 
     return () => clearInterval(pollInterval);
   }, [fetchSessions, fetchCheckedInStudents, tab]);
