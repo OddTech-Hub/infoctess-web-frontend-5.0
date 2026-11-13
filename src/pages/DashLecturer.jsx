@@ -693,6 +693,7 @@ export default function LecturerDashboard() {
   const [repLoading, setRepLoading] = useState(false);
 
   // Groups tab state
+  const [selectedGroupCourse, setSelectedGroupCourse] = useState("");
   const [selectedGroup, setSelectedGroup] = useState("");
   const [groupStudentFilter, setGroupStudentFilter] = useState("all");
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
@@ -704,19 +705,24 @@ export default function LecturerDashboard() {
 
   const handleAddGroup = async () => {
     try {
-      const nextGroupNum = groups.length + 1;
+      const activeCourseCode = selectedGroupCourse || (courses[0]?.code || "");
+      const courseGroupsCount = activeCourseCode
+        ? groups.filter(g => String(g).toUpperCase().startsWith(activeCourseCode.toUpperCase() + " - ")).length
+        : groups.length;
+      const nextGroupNum = courseGroupsCount + 1;
       const res = await request("/api/courses/groups/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: `Group ${nextGroupNum}`,
+          course_code: activeCourseCode,
           level_id: level?.code || level?.id || "L100"
         })
       });
       const json = await res.json();
       if (json.success) {
-        const newGName = json.data?.name || `Group ${nextGroupNum}`;
-        setGroups(prev => [...prev, newGName]);
+        const newGName = json.data?.display_name || (activeCourseCode ? `${activeCourseCode} - Group ${nextGroupNum}` : (json.data?.name || `Group ${nextGroupNum}`));
+        setGroups(prev => (prev.includes(newGName) ? prev : [...prev, newGName]));
         setSelectedGroup(newGName);
         alert(`Successfully added ${newGName}!`);
         if (level) selectLevel(level);
@@ -2627,9 +2633,53 @@ export default function LecturerDashboard() {
               </button>
             </div>
 
+            {/* Course Filter Pills for Course-Scoped Groups */}
+            {courses.length > 0 && (
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 18, alignItems: "center" }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "#475569", marginRight: 4 }}>Course:</span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedGroupCourse("")}
+                  style={{
+                    padding: "6px 14px", borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: "pointer",
+                    border: !selectedGroupCourse ? "1px solid #2563eb" : "1px solid #cbd5e1",
+                    background: !selectedGroupCourse ? "#2563eb" : "white",
+                    color: !selectedGroupCourse ? "white" : "#475569"
+                  }}
+                >
+                  All Courses
+                </button>
+                {courses.map(c => {
+                  const active = selectedGroupCourse === c.code;
+                  return (
+                    <button
+                      key={c.code}
+                      type="button"
+                      onClick={() => {
+                        setSelectedGroupCourse(c.code);
+                        const firstMatch = groups.find(g => String(g).toUpperCase().startsWith(c.code.toUpperCase() + " - "));
+                        if (firstMatch) setSelectedGroup(firstMatch);
+                      }}
+                      style={{
+                        padding: "6px 14px", borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: "pointer",
+                        border: active ? "1px solid #2563eb" : "1px solid #cbd5e1",
+                        background: active ? "#2563eb" : "white",
+                        color: active ? "white" : "#475569"
+                      }}
+                    >
+                      {c.code} — {c.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
             {/* Group Selector Cards */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, marginBottom: 24 }}>
-              {groups.map((gName, idx) => {
+              {(selectedGroupCourse
+                ? groups.filter(g => String(g).toUpperCase().startsWith(selectedGroupCourse.toUpperCase() + " - "))
+                : groups
+              ).map((gName, idx) => {
                 const matchGroup = (sG, tG) => {
                   if (!sG || !tG) return false;
                   const sStr = String(sG).trim().toLowerCase().replace(/\s+/g, '');
@@ -2712,7 +2762,13 @@ export default function LecturerDashboard() {
                   +
                 </div>
                 <div style={{ fontWeight: 700, fontSize: 14, color: "#1e3a5f" }}>Add Group</div>
-                <div style={{ fontSize: 11, color: "#64748b" }}>Create Group {groups.length + 1}</div>
+                <div style={{ fontSize: 11, color: "#64748b" }}>
+                  {(() => {
+                    const cCode = selectedGroupCourse || courses[0]?.code || "";
+                    const cnt = cCode ? groups.filter(g => String(g).toUpperCase().startsWith(cCode.toUpperCase() + " - ")).length : groups.length;
+                    return cCode ? `Create ${cCode} - Group ${cnt + 1}` : `Create Group ${cnt + 1}`;
+                  })()}
+                </div>
               </div>
             </div>
 
