@@ -683,6 +683,8 @@ export default function LecturerDashboard() {
   const [coursesLoading, setCoursesLoading] = useState(false);
 
   // Course Rep Management state
+  const [repMode, setRepMode] = useState("existing");
+  const [selectedRepStudentId, setSelectedRepStudentId] = useState("");
   const [courseReps, setCourseReps] = useState([]);
   const [repFirstName, setRepFirstName] = useState("");
   const [repLastName, setRepLastName] = useState("");
@@ -968,27 +970,41 @@ export default function LecturerDashboard() {
 
   const handleAppointRep = async (e) => {
     e.preventDefault();
+    if (repMode === "existing" && !selectedRepStudentId && !repEmail.trim()) {
+      alert("Please select a student from your roster.");
+      return;
+    }
     if (!repEmail.trim() || !repFirstName.trim()) return;
     setRepLoading(true);
     try {
+      const payload = {
+        first_name: repFirstName.trim(),
+        last_name: repLastName.trim(),
+        email: repEmail.trim().toLowerCase(),
+        index_number: repIndex.trim(),
+        course_code: repCourse || (courses[0] ? courses[0].code : ""),
+        group_id: repGroup || (groups[0] || "Group 1"),
+        password: repPassword.trim()
+      };
+      if (repMode === "existing" && selectedRepStudentId) {
+        payload.student_id = selectedRepStudentId;
+      }
+
       const res = await request("/api/course-reps/", {
         method: "POST",
-        body: JSON.stringify({
-          first_name: repFirstName.trim(),
-          last_name: repLastName.trim(),
-          email: repEmail.trim().toLowerCase(),
-          index_number: repIndex.trim(),
-          course_code: repCourse || (courses[0] ? courses[0].code : ""),
-          group_id: repGroup || (groups[0] || "Group 1"),
-          password: repPassword.trim() || Math.random().toString(36).slice(-8)
-        })
+        body: JSON.stringify(payload)
       });
       if (!res.ok) throw new Error(`Server returned status ${res.status}`);
       const json = await res.json();
       if (!json.success) throw new Error(json.message);
 
-      const assignedPass = repPassword.trim() || 'Auto-generated secure password';
-      alert(`✓ ${json.message}\nLogin Password: ${assignedPass}`);
+      if (json.data?.password_kept) {
+        alert(`✓ ${json.message}\nAccount upgraded from Student to Course Rep. Existing student password was preserved.`);
+      } else {
+        const issuedPass = json.data?.password || "password123";
+        alert(`✓ ${json.message}\nLogin Email/Index: ${repIndex || repEmail}\nLogin Password: ${issuedPass}`);
+      }
+      setSelectedRepStudentId("");
       setRepFirstName("");
       setRepLastName("");
       setRepEmail("");
@@ -2971,6 +2987,80 @@ export default function LecturerDashboard() {
                 <div style={{ fontSize: 12, color: "#64748b", marginBottom: 16 }}>Assign a student as Course Rep and set their login password</div>
 
                 <form onSubmit={handleAppointRep} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {/* Mode Switcher: Existing Roster Student vs. New Student */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, background: "#f1f5f9", padding: 4, borderRadius: 10 }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRepMode("existing");
+                        setSelectedRepStudentId("");
+                      }}
+                      style={{
+                        padding: "8px 10px", borderRadius: 8, border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer",
+                        background: repMode === "existing" ? "white" : "transparent",
+                        color: repMode === "existing" ? "#0f172a" : "#64748b",
+                        boxShadow: repMode === "existing" ? "0 1px 3px rgba(0,0,0,0.08)" : "none"
+                      }}
+                    >
+                      📋 Select from Student Roster ({students.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRepMode("new");
+                        setSelectedRepStudentId("");
+                        setRepFirstName("");
+                        setRepLastName("");
+                        setRepEmail("");
+                        setRepIndex("");
+                      }}
+                      style={{
+                        padding: "8px 10px", borderRadius: 8, border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer",
+                        background: repMode === "new" ? "white" : "transparent",
+                        color: repMode === "new" ? "#0f172a" : "#64748b",
+                        boxShadow: repMode === "new" ? "0 1px 3px rgba(0,0,0,0.08)" : "none"
+                      }}
+                    >
+                      ➕ Onboard New Student
+                    </button>
+                  </div>
+
+                  {repMode === "existing" && (
+                    <div>
+                      <label style={{ fontSize: 11, fontWeight: 700, color: "#64748b", display: "block", marginBottom: 4 }}>SELECT STUDENT FROM ROSTER *</label>
+                      {students.length === 0 ? (
+                        <div style={{ fontSize: 12, color: "#b45309", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, padding: "10px 12px" }}>
+                          No students found in this level yet. Switch to <strong>Onboard New Student</strong> or upload your student roster CSV first.
+                        </div>
+                      ) : (
+                        <select
+                          value={selectedRepStudentId}
+                          onChange={e => {
+                            const val = e.target.value;
+                            setSelectedRepStudentId(val);
+                            const st = students.find(s => String(s.id) === String(val));
+                            if (st) {
+                              const parts = (st.name || "").trim().split(" ");
+                              setRepFirstName(parts[0] || "");
+                              setRepLastName(parts.slice(1).join(" ") || "");
+                              setRepIndex(st.index || "");
+                              setRepEmail(st.email || (st.index ? `${st.index}@st.uew.edu.gh` : ""));
+                              if (st.group) setRepGroup(st.group);
+                            }
+                          }}
+                          style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, background: "white", fontWeight: 600, color: "#0f172a" }}
+                        >
+                          <option value="">-- Choose a student from your roster --</option>
+                          {students.map(s => (
+                            <option key={s.id} value={s.id}>
+                              {s.name} ({s.index || "No Index"}) — {s.group || "Unassigned"}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  )}
+
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                     <div>
                       <label style={{ fontSize: 11, fontWeight: 700, color: "#64748b", display: "block", marginBottom: 4 }}>FIRST NAME *</label>
@@ -3044,10 +3134,16 @@ export default function LecturerDashboard() {
                   </div>
 
                   <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: "#64748b", display: "block", marginBottom: 4 }}>REP LOGIN PASSWORD</label>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: "#64748b", display: "block", marginBottom: 4 }}>
+                      {repMode === "existing" && selectedRepStudentId
+                        ? "OPTIONAL PASSWORD OVERRIDE (Leave empty to keep student's current password)"
+                        : "REP LOGIN PASSWORD (Leave empty for default: password123)"}
+                    </label>
                     <input
                       type="text"
-                      placeholder="e.g. repSecret2026 (Leave empty for auto-generated)"
+                      placeholder={repMode === "existing" && selectedRepStudentId
+                        ? "Leave empty to keep student's existing password"
+                        : "Leave empty to issue default password: password123"}
                       value={repPassword}
                       onChange={e => setRepPassword(e.target.value)}
                       style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, fontWeight: 600, color: "#2563eb" }}
