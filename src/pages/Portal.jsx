@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   LogIn, Eye, EyeOff, UserCheck, GraduationCap,
-  ArrowLeft, AlertCircle, CheckCircle2, Loader2,
+  ArrowLeft, AlertCircle, CheckCircle2, Loader2, KeyRound, Lock,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../api/config';
@@ -54,6 +54,17 @@ export default function Portal() {
   const [repError, setRepError] = useState('');
   const [repSuccess, setRepSuccess] = useState('');
 
+  // First-time password change state
+  const [showChangePassModal, setShowChangePassModal] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [tempUser, setTempUser] = useState(null);
+  const [tempToken, setTempToken] = useState(null);
+  const [tempTargetRoute, setTempTargetRoute] = useState('/lec');
+  const [changePassLoading, setChangePassLoading] = useState(false);
+  const [changePassError, setChangePassError] = useState('');
+
   const isRight = panel === 'rep';
 
   const switchPanel = (targetPanel) => {
@@ -94,6 +105,17 @@ export default function Portal() {
       const userRole = (json.data.user?.role || '').toLowerCase();
       if (userRole !== 'lecturer' && !json.data.user?.is_staff && !json.data.user?.is_superuser) {
         setLectError(`Access Denied: Your account is registered as a ${userRole === 'rep' ? 'Course Representative' : 'Student'}. You cannot log into the Lecturer Portal. Please use the appropriate portal.`);
+        return;
+      }
+
+      if (json.data.user?.must_change_password) {
+        setTempUser(json.data.user);
+        setTempToken(json.data.token);
+        setTempTargetRoute('/lec');
+        setNewPassword('');
+        setConfirmPassword('');
+        setChangePassError('');
+        setShowChangePassModal(true);
         return;
       }
 
@@ -142,6 +164,17 @@ export default function Portal() {
         return;
       }
 
+      if (json.data.user?.must_change_password) {
+        setTempUser(json.data.user);
+        setTempToken(json.data.token);
+        setTempTargetRoute('/rep');
+        setNewPassword('');
+        setConfirmPassword('');
+        setChangePassError('');
+        setShowChangePassModal(true);
+        return;
+      }
+
       saveWebUser(json.data.user, json.data.token);
       setRepSuccess(`Welcome, ${json.data.user.first_name}!`);
       setTimeout(() => navigate('/rep'), 800);
@@ -151,6 +184,65 @@ export default function Portal() {
       setRepError('Could not reach the server. Check your connection.');
     } finally {
       setLoading(false);
+    }
+  }
+
+  // Handle first-time password change submit
+  async function handleChangePasswordSubmit(e) {
+    e.preventDefault();
+    setChangePassError('');
+
+    if (!newPassword || newPassword.length < 6) {
+      setChangePassError('Password must be at least 6 characters long.');
+      return;
+    }
+    if (newPassword === 'password123') {
+      setChangePassError('Please choose your own preferred password instead of the default password.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setChangePassError('Passwords do not match. Please verify.');
+      return;
+    }
+
+    setChangePassLoading(true);
+    try {
+      const accessToken = typeof tempToken === 'object' && tempToken ? tempToken.access : tempToken;
+      const res = await fetch(`${API_BASE_URL}/api/auth/change-password/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify({
+          new_password: newPassword,
+          confirm_password: confirmPassword,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || data.success === false) {
+        throw new Error(data.message || 'Failed to update password.');
+      }
+
+      const updatedUser = {
+        ...tempUser,
+        must_change_password: false,
+      };
+      saveWebUser(updatedUser, tempToken);
+
+      setShowChangePassModal(false);
+      if (tempTargetRoute === '/rep') {
+        setRepSuccess('Password updated! Redirecting to Course Rep Dashboard...');
+      } else {
+        setLectSuccess('Password updated! Redirecting to Lecturer Dashboard...');
+      }
+      setTimeout(() => navigate(tempTargetRoute), 800);
+    } catch (err) {
+      setChangePassError(err.message || 'Could not update password. Please try again.');
+    } finally {
+      setChangePassLoading(false);
     }
   }
 
@@ -433,6 +525,108 @@ export default function Portal() {
                 </>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── FIRST-TIME LOGIN FORCE PASSWORD CHANGE MODAL ── */}
+      {showChangePassModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.8)', backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, padding: 16
+        }}>
+          <div style={{
+            background: 'white', borderRadius: 28, padding: '32px 28px', width: '100%', maxWidth: 440,
+            boxShadow: '0 25px 60px -15px rgba(0,0,0,0.4)', textAlign: 'center'
+          }}>
+            <div style={{
+              width: 56, height: 56, borderRadius: 16, background: 'linear-gradient(135deg, #1E5A87, #2A6B9E)',
+              color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px',
+              boxShadow: '0 8px 20px rgba(30,90,135,0.25)'
+            }}>
+              <KeyRound size={28} />
+            </div>
+
+            <h2 style={{ fontSize: 20, fontWeight: 800, color: '#0f172a', margin: '0 0 6px' }}>
+              First-Time Login: Choose Your Password
+            </h2>
+            <p style={{ fontSize: 13, color: '#64748b', margin: '0 0 20px', lineHeight: 1.5 }}>
+              Welcome to Smart Attendance! Please choose your own preferred secret password for all future logins. Only you will know this password.
+            </p>
+
+            {changePassError && (
+              <div style={{
+                background: '#fee2e2', border: '1px solid #fca5a5', color: '#991b1b',
+                padding: '10px 14px', borderRadius: 12, fontSize: 12, fontWeight: 600,
+                marginBottom: 16, display: 'flex', alignItems: 'center', gap: 6, textAlign: 'left'
+              }}>
+                <AlertCircle size={15} style={{ flexShrink: 0 }} />
+                <span>{changePassError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleChangePasswordSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12, textAlign: 'left' }}>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 4 }}>
+                  PREFERRED PASSWORD (MIN 6 CHARACTERS)
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={showNewPass ? 'text' : 'password'}
+                    placeholder="Enter your preferred password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    style={{ ...S.input, marginBottom: 0, paddingRight: 42 }}
+                    required
+                  />
+                  <button
+                    type="button"
+                    style={{ ...S.eyeBtn, top: '50%' }}
+                    onClick={() => setShowNewPass(v => !v)}
+                  >
+                    {showNewPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 4 }}>
+                  CONFIRM PREFERRED PASSWORD
+                </label>
+                <input
+                  type={showNewPass ? 'text' : 'password'}
+                  placeholder="Re-enter your preferred password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  style={{ ...S.input, marginBottom: 0 }}
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={changePassLoading}
+                style={{
+                  width: '100%', padding: '14px', marginTop: 10,
+                  background: 'linear-gradient(135deg, #1E5A87, #0A3A4F)',
+                  color: 'white', border: 'none', borderRadius: 12, fontWeight: 800,
+                  fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', gap: 8, boxShadow: '0 4px 14px rgba(30,90,135,0.3)',
+                  opacity: changePassLoading ? 0.75 : 1
+                }}
+              >
+                {changePassLoading ? (
+                  <>
+                    <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+                    Saving Password...
+                  </>
+                ) : (
+                  <>
+                    <Lock size={16} /> Save Preferred Password & Continue
+                  </>
+                )}
+              </button>
+            </form>
           </div>
         </div>
       )}
