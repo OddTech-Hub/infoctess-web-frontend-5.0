@@ -850,8 +850,9 @@ export default function LecturerDashboard() {
         const enriched = json.data.map(lvl => {
           const theme = LEVEL_THEMES[lvl.code] || LEVEL_THEMES[lvl.id] || { color: "#3b82f6", bg: "#eff6ff", border: "#bfdbfe" };
           return {
-            id: lvl.id,
-            code: lvl.code,
+            id: lvl.code || lvl.id,
+            dbId: lvl.id,
+            code: lvl.code || lvl.id,
             label: lvl.label,
             year: lvl.year,
             ...theme,
@@ -871,7 +872,7 @@ export default function LecturerDashboard() {
         });
         setLevels(enriched);
         if (enriched.length > 0 && !selectedLevel) {
-          const defaultLevel = enriched.find(l => l.stats.courses > 0) || enriched[0];
+          const defaultLevel = enriched.find(l => l.stats.courses > 0) || enriched.find(l => l.studentsCount > 0) || enriched[0];
           selectLevel(defaultLevel);
         }
       } else {
@@ -1074,27 +1075,35 @@ export default function LecturerDashboard() {
     try {
       const levelCode = lvl.code || lvl.id;
       const isSwitchingLevel = (selectedLevel?.code || selectedLevel?.id) !== levelCode;
-      // 1. Fetch summary stats & group details
-      const resSum = await request(`/api/reports/summary/${levelCode}/`);
-      if (!resSum.ok) throw new Error(`Server returned status ${resSum.status}`);
+
+      const [resSum, resBreak, resAlert] = await Promise.all([
+        request(`/api/reports/summary/${encodeURIComponent(levelCode)}/`),
+        request(`/api/reports/breakdown/?level_code=${encodeURIComponent(levelCode)}`).catch(() => null),
+        request(`/api/alerts/?level_id=${encodeURIComponent(levelCode)}`).catch(() => null),
+      ]);
+
+      if (!resSum || !resSum.ok) {
+        throw new Error(`Server returned status ${resSum ? resSum.status : "Network Error"}`);
+      }
       const jsonSum = await resSum.json();
 
-      // 2. Fetch all student attendance data for this level
-      const resBreak = await request(`/api/reports/breakdown/?level_code=${levelCode}`);
-      if (!resBreak.ok) throw new Error(`Server returned status ${resBreak.status}`);
-      const jsonBreak = await resBreak.json();
-
-      // 3. Fetch flagged alert list
-      let jsonAlert = { data: [] };
-      try {
-        const resAlert = await request(`/api/alerts/?level_id=${lvl.id}`);
-        if (resAlert.ok) jsonAlert = await resAlert.json();
-      } catch (e) {
-        console.warn("Alerts fetch optional warning:", e);
+      let jsonBreak = { success: true, data: [] };
+      if (resBreak && resBreak.ok) {
+        try {
+          jsonBreak = await resBreak.json();
+        } catch (e) { }
       }
 
-      if (jsonSum.success && jsonBreak.success) {
-        const enrichedStudents = jsonBreak.data.map(s => ({
+      let jsonAlert = { success: false, data: [] };
+      if (resAlert && resAlert.ok) {
+        try {
+          jsonAlert = await resAlert.json();
+        } catch (e) { }
+      }
+
+      if (jsonSum.success) {
+        const rawBreakData = Array.isArray(jsonBreak?.data) ? jsonBreak.data : [];
+        const enrichedStudents = rawBreakData.map(s => ({
           id: s.id,
           name: s.name,
           index: s.index,
@@ -1103,21 +1112,21 @@ export default function LecturerDashboard() {
           total: s.total,
           pct: s.pct,
           device: s.device || "N/A",
-          deviceId: s.device_id,
+          deviceId: s.deviceId || s.device_id,
           flagged: s.flagged,
-          alertType: s.alert_type,
-          flagReason: s.flag_reason,
+          alertType: s.alertType || s.alert_type,
+          flagReason: s.flagReason || s.flag_reason,
           group: s.group || "Unassigned",
           groups: Array.isArray(s.groups) && s.groups.length > 0 ? s.groups : (s.group ? [s.group] : [])
         }));
 
         const formattedSessions = (jsonSum.data.sessions || []).map(s => ({
           id: s.id,
-          course: s.course.code,
-          courseName: s.course.name,
-          date: new Date(s.opened_at).toLocaleDateString(),
+          course: s.course?.code || "",
+          courseName: s.course?.name || "",
+          date: s.opened_at ? new Date(s.opened_at).toLocaleDateString() : "",
           timeWindow: s.time_window,
-          checkins: s.checkin_count,
+          checkins: s.checkin_count ?? 0,
           status: s.status
         }));
 
@@ -1131,19 +1140,21 @@ export default function LecturerDashboard() {
         setAllDepartmentCourses(jsonSum.data.allCourses || []);
         setSessions(formattedSessions);
         setGroups(groupNames);
-        setStats(jsonSum.data.stats);
+        setStats(jsonSum.data.stats || { courses: 0, groups: 0, lowAttendance: 0, flagged: 0 });
         if (isSwitchingLevel) {
           setSelectedGroupCourse("");
         }
 
         const updatedLevel = {
           ...lvl,
+          id: lvl.code || lvl.id,
+          code: lvl.code || lvl.id,
           students: enrichedStudents,
           courses: coursesList,
           sessions: formattedSessions,
           groups: groupNames,
-          progress: jsonSum.data.progress,
-          stats: jsonSum.data.stats
+          progress: jsonSum.data.progress || [],
+          stats: jsonSum.data.stats || { courses: 0, groups: 0, lowAttendance: 0, flagged: 0 }
         };
 
         setSelectedLevel(updatedLevel);
@@ -1156,7 +1167,7 @@ export default function LecturerDashboard() {
         setGroup(nextSelectedGroup);
         setSelectedGroup(nextSelectedGroup);
 
-        if (jsonAlert.success) {
+        if (jsonAlert.success && Array.isArray(jsonAlert.data)) {
           setFlaggedList(jsonAlert.data.filter(a => a.status === 'open'));
         } else {
           setFlaggedList(enrichedStudents.filter(s => s.flagged));
@@ -1170,24 +1181,27 @@ export default function LecturerDashboard() {
     }
   };
 
-  // ── REAL-TIME SILENT SYNC WITH MOBILE APP CHECKINS (Every 2.5s) ──
+  // ── REAL-TIME SILENT SYNC WITH MOBILE APP CHECKINS ──
+  const silentSyncInFlightRef = useRef(false);
   const silentRefreshLevel = useCallback(async (lvl) => {
-    if (!lvl) return;
+    if (!lvl || silentSyncInFlightRef.current) return;
+    silentSyncInFlightRef.current = true;
     try {
       const levelCode = lvl.code || lvl.id;
-      const resSum = await request(`/api/reports/summary/${levelCode}/`);
-      if (!resSum.ok) return;
-      const jsonSum = await resSum.json();
-
-      const resBreak = await request(`/api/reports/breakdown/?level_code=${levelCode}`);
-      if (!resBreak.ok) return;
-      const jsonBreak = await resBreak.json();
+      const [resSum, resBreak, resAlert] = await Promise.all([
+        request(`/api/reports/summary/${encodeURIComponent(levelCode)}/`).catch(() => null),
+        request(`/api/reports/breakdown/?level_code=${encodeURIComponent(levelCode)}`).catch(() => null),
+        request(`/api/alerts/?level_id=${encodeURIComponent(levelCode)}`).catch(() => null),
+      ]);
+      if (!resSum || !resSum.ok || !resBreak || !resBreak.ok) return;
+      const [jsonSum, jsonBreak] = await Promise.all([resSum.json(), resBreak.json()]);
 
       let jsonAlert = { data: [] };
-      try {
-        const resAlert = await request(`/api/alerts/?level_id=${lvl.id}`);
-        if (resAlert.ok) jsonAlert = await resAlert.json();
-      } catch (e) { }
+      if (resAlert && resAlert.ok) {
+        try {
+          jsonAlert = await resAlert.json();
+        } catch (e) { }
+      }
 
       if (jsonSum.success && jsonBreak.success) {
         const enrichedStudents = jsonBreak.data.map(s => ({
@@ -1221,12 +1235,14 @@ export default function LecturerDashboard() {
 
         setStats(jsonSum.data.stats);
 
-        if (jsonAlert.success) {
+        if (jsonAlert.success && Array.isArray(jsonAlert.data)) {
           setFlaggedList(jsonAlert.data.filter(a => a.status === 'open'));
         }
       }
     } catch (e) {
       console.warn("Silent sync error:", e);
+    } finally {
+      silentSyncInFlightRef.current = false;
     }
   }, []);
 
@@ -1234,7 +1250,7 @@ export default function LecturerDashboard() {
     if (!selectedLevel) return;
     const syncInterval = setInterval(() => {
       silentRefreshLevel(selectedLevel);
-    }, 3000);
+    }, 6000);
 
     return () => clearInterval(syncInterval);
   }, [selectedLevel?.id, selectedLevel?.code, silentRefreshLevel]);
