@@ -703,37 +703,59 @@ export default function LecturerDashboard() {
   const [newStudentFirst, setNewStudentFirst] = useState("");
   const [newStudentLast, setNewStudentLast] = useState("");
   const [newStudentIndex, setNewStudentIndex] = useState("");
+  const [newStudentEmail, setNewStudentEmail] = useState("");
   const [addingStudentLoading, setAddingStudentLoading] = useState(false);
+  const [addingGroupLoading, setAddingGroupLoading] = useState(false);
+  const [uploadingGroupFile, setUploadingGroupFile] = useState(false);
   const groupCsvInputRef = useRef(null);
 
+  const getNextGroupNumber = (targetCourseCode = "") => {
+    const scopedGroups = targetCourseCode
+      ? groups.filter(g => String(g).toUpperCase().startsWith(targetCourseCode.toUpperCase() + " - "))
+      : groups;
+    let maxNum = 0;
+    scopedGroups.forEach(g => {
+      const m = String(g).match(/(\d+)\s*$/);
+      if (m) {
+        const n = parseInt(m[1], 10);
+        if (n > maxNum) maxNum = n;
+      }
+    });
+    return Math.max(maxNum + 1, scopedGroups.length + 1);
+  };
+
   const handleAddGroup = async () => {
+    if (addingGroupLoading) return;
+    const activeCourseCode = selectedGroupCourse || (courses[0]?.code || "");
+    if (!activeCourseCode && courses.length === 0) {
+      alert("You have no assigned course in this level yet.");
+      return;
+    }
+    setAddingGroupLoading(true);
     try {
-      const activeCourseCode = selectedGroupCourse || (courses[0]?.code || "");
-      const courseGroupsCount = activeCourseCode
-        ? groups.filter(g => String(g).toUpperCase().startsWith(activeCourseCode.toUpperCase() + " - ")).length
-        : groups.length;
-      const nextGroupNum = courseGroupsCount + 1;
-      const res = await request("/api/courses/groups/", {
+      const nextGroupNum = getNextGroupNumber(activeCourseCode);
+      const res = await request("/api/groups/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: `Group ${nextGroupNum}`,
           course_code: activeCourseCode,
-          level_id: level?.code || level?.id || "L100"
+          level_id: level?.code || level?.id || "L100",
+          auto_increment: true
         })
       });
       const json = await res.json();
       if (json.success) {
-        const newGName = json.data?.display_name || (activeCourseCode ? `${activeCourseCode} - Group ${nextGroupNum}` : (json.data?.name || `Group ${nextGroupNum}`));
+        const newGName = json.data?.display_name || (activeCourseCode ? `${activeCourseCode} - ${json.data?.name || `Group ${nextGroupNum}`}` : (json.data?.name || `Group ${nextGroupNum}`));
         setGroups(prev => (prev.includes(newGName) ? prev : [...prev, newGName]));
         setSelectedGroup(newGName);
-        alert(`Successfully added ${newGName}!`);
-        if (level) selectLevel(level);
+        if (level) await selectLevel(level, newGName);
       } else {
         alert(json.message || "Failed to add group.");
       }
     } catch (err) {
       alert("Error adding group: " + err.message);
+    } finally {
+      setAddingGroupLoading(false);
     }
   };
 
@@ -753,6 +775,7 @@ export default function LecturerDashboard() {
           first_name: newStudentFirst.trim(),
           last_name: newStudentLast.trim(),
           index_number: newStudentIndex.trim(),
+          email: newStudentEmail.trim(),
           group_name: targetGroupName,
           level_code: level?.code || "L100"
         })
@@ -764,7 +787,8 @@ export default function LecturerDashboard() {
         setNewStudentFirst("");
         setNewStudentLast("");
         setNewStudentIndex("");
-        if (level) selectLevel(level);
+        setNewStudentEmail("");
+        if (level) await selectLevel(level, targetGroupName);
       } else {
         alert(json.message || "Failed to add student.");
       }
@@ -778,25 +802,34 @@ export default function LecturerDashboard() {
   const handleGroupCSVUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    const targetGroupName = selectedGroup || groups[0] || "Group 1";
+    const targetGroupName = selectedGroup || groups[0] || "";
+    if (!targetGroupName) {
+      alert("Please create or select a group first before uploading students.");
+      e.target.value = "";
+      return;
+    }
+    const levelCode = level?.code || level?.id || "L100";
     const formData = new FormData();
     formData.append("file", file);
     formData.append("group_name", targetGroupName);
+    formData.append("level_code", levelCode);
+    setUploadingGroupFile(true);
     try {
-      const res = await request(`/api/auth/students/import-csv/?group_name=${encodeURIComponent(targetGroupName)}`, {
+      const res = await request(`/api/auth/students/import-csv/?group_name=${encodeURIComponent(targetGroupName)}&level_code=${encodeURIComponent(levelCode)}`, {
         method: "POST",
         body: formData
       });
       const json = await res.json();
       if (json.success) {
         alert(json.message || `Successfully imported students into ${targetGroupName}!`);
-        if (level) selectLevel(level);
+        if (level) await selectLevel(level, targetGroupName);
       } else {
-        alert(json.message || "CSV import failed.");
+        alert(json.message || "File import failed.");
       }
     } catch (err) {
-      alert("CSV upload error: " + err.message);
+      alert("Upload error: " + err.message);
     } finally {
+      setUploadingGroupFile(false);
       e.target.value = "";
     }
   };
@@ -826,17 +859,20 @@ export default function LecturerDashboard() {
             students: [],
             sessions: [],
             groups: [],
+            studentsCount: lvl.studentsCount ?? 0,
+            flaggedCount: lvl.flaggedCount ?? 0,
             stats: {
-              courses: lvl.courses_count || 0,
-              groups: lvl.groups_count || 1,
+              courses: lvl.courses_count ?? 0,
+              groups: lvl.groups_count ?? 0,
               lowAttendance: lvl.low_attendance_count || 0,
-              flagged: lvl.flagged_count || 0
+              flagged: lvl.flaggedCount ?? lvl.flagged_count ?? 0
             }
           };
         });
         setLevels(enriched);
         if (enriched.length > 0 && !selectedLevel) {
-          selectLevel(enriched[0]);
+          const defaultLevel = enriched.find(l => l.stats.courses > 0) || enriched[0];
+          selectLevel(defaultLevel);
         }
       } else {
         setLevels(ALL_LEVELS);
@@ -1033,10 +1069,11 @@ export default function LecturerDashboard() {
     loadCourseReps();
   }, [loadLevels, loadCourseReps]);
 
-  async function selectLevel(lvl) {
+  async function selectLevel(lvl, preferredGroup = null) {
     setLoadingLevel(true);
     try {
       const levelCode = lvl.code || lvl.id;
+      const isSwitchingLevel = (selectedLevel?.code || selectedLevel?.id) !== levelCode;
       // 1. Fetch summary stats & group details
       const resSum = await request(`/api/reports/summary/${levelCode}/`);
       if (!resSum.ok) throw new Error(`Server returned status ${resSum.status}`);
@@ -1061,6 +1098,7 @@ export default function LecturerDashboard() {
           id: s.id,
           name: s.name,
           index: s.index,
+          email: s.email,
           attended: s.attended,
           total: s.total,
           pct: s.pct,
@@ -1069,7 +1107,8 @@ export default function LecturerDashboard() {
           flagged: s.flagged,
           alertType: s.alert_type,
           flagReason: s.flag_reason,
-          group: s.group || "Unassigned"
+          group: s.group || "Unassigned",
+          groups: Array.isArray(s.groups) && s.groups.length > 0 ? s.groups : (s.group ? [s.group] : [])
         }));
 
         const formattedSessions = (jsonSum.data.sessions || []).map(s => ({
@@ -1084,8 +1123,8 @@ export default function LecturerDashboard() {
 
         const coursesList = jsonSum.data.courses || [];
         const rawGroupNames = jsonSum.data.groups || [];
-        const studentGroupNames = Array.from(new Set(enrichedStudents.map(s => s.group))).filter(Boolean);
-        const groupNames = rawGroupNames.length > 0 ? rawGroupNames : (studentGroupNames.length > 0 ? studentGroupNames : ["Group 1", "Group 2"]);
+        const studentGroupNames = Array.from(new Set(enrichedStudents.map(s => s.group))).filter(g => g && g !== "Unassigned");
+        const groupNames = rawGroupNames.length > 0 ? rawGroupNames : studentGroupNames;
 
         setStudents(enrichedStudents);
         setCourses(coursesList);
@@ -1093,6 +1132,9 @@ export default function LecturerDashboard() {
         setSessions(formattedSessions);
         setGroups(groupNames);
         setStats(jsonSum.data.stats);
+        if (isSwitchingLevel) {
+          setSelectedGroupCourse("");
+        }
 
         const updatedLevel = {
           ...lvl,
@@ -1107,8 +1149,12 @@ export default function LecturerDashboard() {
         setSelectedLevel(updatedLevel);
         setCourse(coursesList[0]?.code || "");
         setQrCourse(coursesList[0]?.code || "");
-        setGroup(groupNames[0] || "Group 1");
-        setSelectedGroup(groupNames[0] || "Group 1");
+        const candidateGroup = preferredGroup || (!isSwitchingLevel ? selectedGroup : "");
+        const nextSelectedGroup = (candidateGroup && groupNames.includes(candidateGroup))
+          ? candidateGroup
+          : (groupNames[0] || "");
+        setGroup(nextSelectedGroup);
+        setSelectedGroup(nextSelectedGroup);
 
         if (jsonAlert.success) {
           setFlaggedList(jsonAlert.data.filter(a => a.status === 'open'));
@@ -1961,7 +2007,7 @@ export default function LecturerDashboard() {
                   <div style={{ fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 16 }}>Attendance % by Course</div>
                   <div style={{ display: "flex", gap: 12, alignItems: "flex-end", height: 160 }}>
                     {level.courses.map((c, i) => {
-                      const avg = Math.round(level.students.reduce((a, s) => a + s.pct, 0) / level.students.length);
+                      const avg = level.students.length > 0 ? Math.round(level.students.reduce((a, s) => a + s.pct, 0) / level.students.length) : 0;
                       const val = [avg, Math.min(avg + 15, 100)][i % 2];
                       const col = val >= 75 ? "#3b82f6" : "#ef4444";
                       return (
@@ -2332,7 +2378,7 @@ export default function LecturerDashboard() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16, marginBottom: 28 }}>
               {[
                 { label: "Enrolled Students", value: level.students.length, color: "#3b82f6", bg: "#eff6ff", icon: Users },
-                { label: "Avg. Attendance", value: `${Math.round(level.students.reduce((a, s) => a + s.pct, 0) / level.students.length)}%`, color: "#10b981", bg: "#ecfdf5", icon: TrendingUp },
+                { label: "Avg. Attendance", value: `${level.students.length > 0 ? Math.round(level.students.reduce((a, s) => a + s.pct, 0) / level.students.length) : 0}%`, color: "#10b981", bg: "#ecfdf5", icon: TrendingUp },
                 { label: "Groups Tracked", value: level.groups.length, color: "#8b5cf6", bg: "#f5f3ff", icon: Layers },
               ].map(({ label, value, color, bg, icon: Icon }) => (
                 <div key={label} style={{ background: "white", borderRadius: 14, padding: "20px 22px", border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
@@ -2701,8 +2747,11 @@ export default function LecturerDashboard() {
                   const tStr = String(tG).trim().toLowerCase().replace(/\s+/g, '');
                   return sStr === tStr;
                 };
+                const studentInGroup = (s, target) =>
+                  matchGroup(s.group, target) ||
+                  (Array.isArray(s.groups) && s.groups.some(g => matchGroup(g, target)));
 
-                const groupStudentsList = students.filter(s => matchGroup(s.group, gName));
+                const groupStudentsList = students.filter(s => studentInGroup(s, gName));
                 const totalInGroup = groupStudentsList.length;
                 const avgPct = totalInGroup > 0 ? Math.round(groupStudentsList.reduce((acc, s) => acc + s.pct, 0) / totalInGroup) : 0;
                 const truantCount = groupStudentsList.filter(s => s.pct < 40).length;
@@ -2754,14 +2803,15 @@ export default function LecturerDashboard() {
 
               {/* Add Group Card */}
               <div
-                onClick={handleAddGroup}
+                onClick={() => !addingGroupLoading && handleAddGroup()}
                 style={{
                   background: "#f8fafc",
                   borderRadius: 16,
                   padding: "18px 20px",
                   border: "2px dashed #93c5fd",
                   boxShadow: "0 1px 4px rgba(0,0,0,0.02)",
-                  cursor: "pointer",
+                  cursor: addingGroupLoading ? "wait" : "pointer",
+                  opacity: addingGroupLoading ? 0.7 : 1,
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
@@ -2774,14 +2824,16 @@ export default function LecturerDashboard() {
                 onMouseLeave={e => e.currentTarget.style.borderColor = "#93c5fd"}
               >
                 <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#eff6ff", color: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 20, border: "1px solid #bfdbfe" }}>
-                  +
+                  {addingGroupLoading ? "…" : "+"}
                 </div>
-                <div style={{ fontWeight: 700, fontSize: 14, color: "#1e3a5f" }}>Add Group</div>
+                <div style={{ fontWeight: 700, fontSize: 14, color: "#1e3a5f" }}>
+                  {addingGroupLoading ? "Creating Group..." : "Add Group"}
+                </div>
                 <div style={{ fontSize: 11, color: "#64748b" }}>
                   {(() => {
                     const cCode = selectedGroupCourse || courses[0]?.code || "";
-                    const cnt = cCode ? groups.filter(g => String(g).toUpperCase().startsWith(cCode.toUpperCase() + " - ")).length : groups.length;
-                    return cCode ? `Create ${cCode} - Group ${cnt + 1}` : `Create Group ${cnt + 1}`;
+                    const nextNum = getNextGroupNumber(cCode);
+                    return cCode ? `Create ${cCode} - Group ${nextNum}` : `Create Group ${nextNum}`;
                   })()}
                 </div>
               </div>
@@ -2795,9 +2847,12 @@ export default function LecturerDashboard() {
                 const tStr = String(tG).trim().toLowerCase().replace(/\s+/g, '');
                 return sStr === tStr;
               };
+              const studentInGroup = (s, target) =>
+                matchGroup(s.group, target) ||
+                (Array.isArray(s.groups) && s.groups.some(g => matchGroup(g, target)));
 
-              const activeGroupName = selectedGroup || groups[0] || "Group 1";
-              const groupStudentsList = students.filter(s => matchGroup(s.group, activeGroupName));
+              const activeGroupName = selectedGroup || groups[0] || "No Group";
+              const groupStudentsList = students.filter(s => studentInGroup(s, activeGroupName));
               const truantStudentsList = groupStudentsList.filter(s => s.pct < 40);
               const punctualStudentsList = groupStudentsList.filter(s => s.pct >= 40);
 
@@ -2822,28 +2877,30 @@ export default function LecturerDashboard() {
                         </span>
                       </div>
                       <p style={{ fontSize: 12, color: "#64748b", margin: "4px 0 0" }}>
-                        Students sorted by attendance. Low attendance rate (&lt;40%) placed at the bottom.
+                        Supports Excel (.xlsx, .xls) &amp; CSV uploads (Index Number, Name, Email auto-detected) into <strong>{activeGroupName}</strong>.
                       </p>
                     </div>
 
-                    {/* Group Action Buttons: Add Student & Bulk CSV */}
+                    {/* Group Action Buttons: Add Student & Bulk Excel/CSV */}
                     <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                      <input 
-                        type="file" 
-                        ref={groupCsvInputRef} 
-                        onChange={handleGroupCSVUpload} 
-                        accept=".csv" 
-                        style={{ display: "none" }} 
+                      <input
+                        type="file"
+                        ref={groupCsvInputRef}
+                        onChange={handleGroupCSVUpload}
+                        accept=".csv,.xlsx,.xls"
+                        style={{ display: "none" }}
                       />
                       <button
+                        disabled={uploadingGroupFile}
                         onClick={() => groupCsvInputRef.current?.click()}
                         style={{
                           display: "inline-flex", alignItems: "center", gap: 6,
                           background: "#eff6ff", color: "#2563eb", border: "1px solid #bfdbfe",
-                          padding: "8px 14px", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer"
+                          padding: "8px 14px", borderRadius: 8, fontSize: 12, fontWeight: 700,
+                          cursor: uploadingGroupFile ? "wait" : "pointer", opacity: uploadingGroupFile ? 0.7 : 1
                         }}
                       >
-                        📥 Upload CSV to {activeGroupName}
+                        {uploadingGroupFile ? "⏳ Importing..." : `📥 Upload Excel / CSV to ${activeGroupName}`}
                       </button>
 
                       <button
@@ -3342,6 +3399,102 @@ export default function LecturerDashboard() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── ADD SINGLE STUDENT MODAL ── */}
+      {showAddStudentModal && (
+        <div
+          onClick={() => setShowAddStudentModal(false)}
+          style={{
+            position: "fixed", inset: 0, background: "rgba(15,23,42,0.7)",
+            backdropFilter: "blur(6px)", zIndex: 1000,
+            display: "flex", alignItems: "center", justifyContent: "center", padding: 20
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: "white", borderRadius: 20, width: "100%", maxWidth: 440,
+              boxShadow: "0 24px 60px rgba(0,0,0,0.3)", overflow: "hidden", animation: "slideUp 0.25s ease"
+            }}
+          >
+            <div style={{ background: "linear-gradient(135deg,#0f172a,#1e3a5f)", padding: "18px 22px", color: "white", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 16 }}>Add Student to Group</div>
+                <div style={{ fontSize: 12, color: "#93c5fd", marginTop: 2 }}>
+                  Target: <strong>{selectedGroup || groups[0] || "Group 1"}</strong> · {level?.label || ""}
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAddStudentModal(false)}
+                style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "white", width: 32, height: 32, borderRadius: 8, cursor: "pointer", fontSize: 16 }}
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleAddSingleStudent} style={{ padding: 22, display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#475569", marginBottom: 4 }}>FIRST NAME</label>
+                  <input
+                    type="text"
+                    value={newStudentFirst}
+                    onChange={e => setNewStudentFirst(e.target.value)}
+                    placeholder="e.g. Kwame"
+                    style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, boxSizing: "border-box" }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#475569", marginBottom: 4 }}>LAST NAME</label>
+                  <input
+                    type="text"
+                    value={newStudentLast}
+                    onChange={e => setNewStudentLast(e.target.value)}
+                    placeholder="e.g. Mensah"
+                    style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, boxSizing: "border-box" }}
+                  />
+                </div>
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#475569", marginBottom: 4 }}>INDEX NUMBER *</label>
+                <input
+                  type="text"
+                  required
+                  value={newStudentIndex}
+                  onChange={e => setNewStudentIndex(e.target.value)}
+                  placeholder="e.g. 5261000018"
+                  style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, boxSizing: "border-box" }}
+                />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#475569", marginBottom: 4 }}>EMAIL (OPTIONAL)</label>
+                <input
+                  type="email"
+                  value={newStudentEmail}
+                  onChange={e => setNewStudentEmail(e.target.value)}
+                  placeholder="Defaults to <index>@st.uew.edu.gh"
+                  style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, boxSizing: "border-box" }}
+                />
+              </div>
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 4 }}>
+                <button
+                  type="button"
+                  onClick={() => setShowAddStudentModal(false)}
+                  style={{ padding: "10px 16px", borderRadius: 8, border: "1px solid #cbd5e1", background: "white", color: "#475569", fontWeight: 600, fontSize: 13, cursor: "pointer" }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={addingStudentLoading}
+                  style={{ padding: "10px 18px", borderRadius: 8, border: "none", background: "#2563eb", color: "white", fontWeight: 700, fontSize: 13, cursor: addingStudentLoading ? "wait" : "pointer" }}
+                >
+                  {addingStudentLoading ? "Saving..." : "Add Student"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

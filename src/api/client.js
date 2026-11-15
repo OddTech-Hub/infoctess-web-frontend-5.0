@@ -7,12 +7,16 @@ export function getAuthHeaders() {
 
 export async function request(path, options = {}) {
   const url = `${API_BASE_URL}${path}`;
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
   const headers = {
-    'Content-Type': 'application/json',
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     'ngrok-skip-browser-warning': 'true',
     ...getAuthHeaders(),
     ...options.headers,
   };
+  if (isFormData && headers['Content-Type']) {
+    delete headers['Content-Type'];
+  }
 
   const response = await fetch(url, {
     ...options,

@@ -137,8 +137,25 @@ export default function DashStudent() {
   const loadStudentData = async (userObj) => {
     try {
       requestLocation();
-      const indexNum = userObj.index_number || userObj.username;
-      const levelCode = userObj.level_code || 'L100';
+      let activeUser = userObj || {};
+
+      // 0. Refresh live user profile (level, group, enrolled_groups, lecturer, academic period, email, role)
+      try {
+        const resMe = await requestApi('/api/auth/me/');
+        if (resMe.ok) {
+          const jsonMe = await resMe.json();
+          if (jsonMe.success && jsonMe.data) {
+            activeUser = { ...activeUser, ...jsonMe.data };
+            setStudent(activeUser);
+            sessionStorage.setItem('web_user', JSON.stringify(activeUser));
+          }
+        }
+      } catch (errMe) {
+        console.warn("Profile refresh:", errMe);
+      }
+
+      const indexNum = activeUser.index_number || activeUser.username;
+      const levelCode = activeUser.level_code || activeUser.enrolled_groups?.[0]?.level_code || 'L100';
 
       // 1. Fetch breakdown report to get student's attendance stats
       const resBreak = await requestApi(`/api/reports/breakdown/?level_code=${levelCode}`);
@@ -146,7 +163,7 @@ export default function DashStudent() {
 
       let myData = null;
       if (jsonBreak.success && jsonBreak.data) {
-        myData = jsonBreak.data.find(s => String(s.index) === String(indexNum) || String(s.id) === String(userObj.id));
+        myData = jsonBreak.data.find(s => String(s.index) === String(indexNum) || String(s.id) === String(activeUser.id));
       }
 
       if (myData) {
@@ -192,17 +209,22 @@ export default function DashStudent() {
         setActiveSessions(combinedActive);
         setCourses(jsonSum.data.courses || []);
 
-        const formattedHistory = allSessions.map(s => ({
-          id: s.id,
-          sessionId: s.id,
-          courseCode: s.course?.code || s.courseCode || 'ICTE',
-          courseName: s.course?.name || s.courseName || 'Class Session',
-          date: s.opened_at ? new Date(s.opened_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : (s.date || new Date().toLocaleDateString()),
-          time: s.opened_at ? new Date(s.opened_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (s.time || '10:00 AM'),
-          status: 'Present',
-          host: 'Course Lecturer / Rep',
-          refId: `REC-${s.id}-${Math.floor(100000 + Math.random() * 900000)}`
-        }));
+        // Only show verified sessions where this student actually checked in
+        const checkedSessions = allSessions.filter(s => s.checked_in);
+        const formattedHistory = checkedSessions.map(s => {
+          const stamp = s.checked_in_at || s.opened_at;
+          return {
+            id: s.id,
+            sessionId: s.id,
+            courseCode: s.course?.code || s.courseCode || 'ICTE',
+            courseName: s.course?.name || s.courseName || 'Class Session',
+            date: stamp ? new Date(stamp).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : new Date().toLocaleDateString(),
+            time: stamp ? new Date(stamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recorded',
+            status: s.record_status || 'Present',
+            host: s.lecturer_name || activeUser.lecturer_name || 'Assigned Lecturer',
+            refId: s.receipt_code || `REC-${s.id}`
+          };
+        });
         setAttendanceHistory(formattedHistory);
       } else if (liveActiveList.length > 0) {
         setActiveSessions(liveActiveList);
@@ -447,12 +469,15 @@ export default function DashStudent() {
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <h1 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>{fullName}</h1>
-                  <span style={{ fontSize: 10, background: '#1e3a5f', color: '#60a5fa', padding: '2px 8px', borderRadius: 20, fontWeight: 700, border: '1px solid #334155' }}>
-                    STUDENT
+                  <span style={{ fontSize: 10, background: '#1e3a5f', color: '#60a5fa', padding: '2px 8px', borderRadius: 20, fontWeight: 700, border: '1px solid #334155', textTransform: 'uppercase' }}>
+                    {student?.role === 'rep' ? 'COURSE REP' : 'STUDENT'}
                   </span>
                 </div>
                 <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 3 }}>
-                  Index: <strong style={{ color: '#f1f5f9' }}>{indexNo}</strong> · {student?.program || 'BSc. Information Technology Education'}
+                  Index: <strong style={{ color: '#f1f5f9' }}>{indexNo}</strong>
+                  {' · '}{student?.level_label || (student?.level_code ? student.level_code.replace(/^L/i, 'Level ') : 'Level 100')}
+                  {(student?.group_display_name || student?.group_name) ? ` · ${student?.group_display_name || student?.group_name}` : ''}
+                  {' · '}{student?.program || 'BSc. Information Technology Education'}
                 </div>
               </div>
             </div>
@@ -644,6 +669,8 @@ export default function DashStudent() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {courses.length > 0 ? courses.map(c => {
                 const badge = getAttendanceStatusBadge(stats.pct);
+                const matchingEnrolled = (student?.enrolled_groups || []).find(g => g.course_code === c.code);
+                const courseLecturer = c.lecturer_name || matchingEnrolled?.lecturer_name || student?.lecturer_name || 'Assigned Faculty Lecturer';
                 return (
                   <div key={c.code} style={{ background: '#f8fafc', borderRadius: 14, padding: '16px 18px', border: '1.5px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
@@ -651,11 +678,16 @@ export default function DashStudent() {
                         <span style={{ fontSize: 11, fontWeight: 800, background: '#e0f2fe', color: '#0369a1', padding: '3px 8px', borderRadius: 6 }}>
                           {c.code}
                         </span>
+                        {matchingEnrolled?.name && (
+                          <span style={{ fontSize: 11, fontWeight: 700, background: '#eff6ff', color: '#1d4ed8', padding: '3px 8px', borderRadius: 6, marginLeft: 6 }}>
+                            {matchingEnrolled.name}
+                          </span>
+                        )}
                         <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a', marginTop: 6 }}>
                           {c.name}
                         </div>
                         <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
-                          Credits: 3 Credit Hours · Lecturer: Dr. Kwesi / Faculty
+                          Credits: 3 Credit Hours · Lecturer: {courseLecturer}
                         </div>
                       </div>
 
@@ -676,7 +708,7 @@ export default function DashStudent() {
                 );
               }) : (
                 <div style={{ fontSize: 13, color: '#94a3b8', textAlign: 'center', padding: 32 }}>
-                  No courses enrolled or loading…
+                  No courses enrolled yet for your level/group.
                 </div>
               )}
             </div>
@@ -707,22 +739,67 @@ export default function DashStudent() {
                 </div>
 
                 <div>
+                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>INSTITUTIONAL EMAIL</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', marginTop: 2, wordBreak: 'break-all' }}>{student?.email || 'Not Set'}</div>
+                </div>
+
+                <div>
                   <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>PROGRAM OF STUDY</div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginTop: 2 }}>{student?.program || 'BSc. Information Technology Education'}</div>
                 </div>
 
                 <div>
-                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>LEVEL & GROUP</div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginTop: 2 }}>Level 100 · Group 1</div>
+                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>LEVEL &amp; PRIMARY GROUP</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginTop: 2 }}>
+                    {student?.level_label || (student?.level_code ? student.level_code.replace(/^L/i, 'Level ') : 'Not Assigned')}
+                    {' · '}
+                    {student?.group_display_name || student?.group_name || 'Unassigned'}
+                  </div>
                 </div>
 
                 <div>
-                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>REGISTERED DEVICE ID</div>
+                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>ASSIGNED LECTURER</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginTop: 2 }}>{student?.lecturer_name || 'Not Assigned Yet'}</div>
+                </div>
+
+                <div>
+                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>ACADEMIC PERIOD</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', marginTop: 2 }}>{student?.academic_period || 'Current Active Semester'}</div>
+                </div>
+
+                <div>
+                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>ACCOUNT ROLE</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#1E5A87', marginTop: 2 }}>
+                    {student?.role === 'rep' ? 'Course Representative' : 'Regular Student'}
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>REGISTERED DEVICE</div>
                   <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', fontFamily: 'monospace', marginTop: 2 }}>
-                    {getDeviceInfo().deviceName} · {getDeviceInfo().deviceId}
+                    {student?.device_name || getDeviceInfo().deviceName} · {student?.device_id || getDeviceInfo().deviceId}
                   </div>
                 </div>
               </div>
+
+              {Array.isArray(student?.enrolled_groups) && student.enrolled_groups.length > 0 && (
+                <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid #f1f5f9' }}>
+                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, marginBottom: 8 }}>
+                    ALL ENROLLED GROUPS ({student.enrolled_groups.length})
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {student.enrolled_groups.map(eg => (
+                      <div key={eg.id || eg.display_name} style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 10, padding: '8px 12px', fontSize: 12 }}>
+                        <div style={{ fontWeight: 800, color: '#0f172a' }}>{eg.display_name || eg.name}</div>
+                        <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+                          {eg.course_name ? `${eg.course_name}` : eg.level_code}
+                          {eg.lecturer_name ? ` · ${eg.lecturer_name}` : ''}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* COLOR IDENTIFYING ATTENDANCE STATUS SCALE */}
