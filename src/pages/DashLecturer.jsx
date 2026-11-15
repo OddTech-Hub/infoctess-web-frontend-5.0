@@ -1194,19 +1194,24 @@ export default function LecturerDashboard() {
           id: s.id,
           name: s.name,
           index: s.index,
+          email: s.email,
           attended: s.attended,
           total: s.total,
           pct: s.pct,
           status: s.status,
           method: s.method,
           time: s.time,
-          group: s.group,
+          device: s.device || "N/A",
+          deviceId: s.deviceId || s.device_id,
+          group: s.group || "Unassigned",
+          groups: Array.isArray(s.groups) && s.groups.length > 0 ? s.groups : (s.group ? [s.group] : []),
           flagged: s.flagged,
-          flagReason: s.flagReason,
-          alertType: s.alertType,
+          flagReason: s.flagReason || s.flag_reason,
+          alertType: s.alertType || s.alert_type,
           alertId: s.alertId
         }));
 
+        setStudents(enrichedStudents);
         setSelectedLevel(prev => prev ? {
           ...prev,
           students: enrichedStudents,
@@ -1399,26 +1404,29 @@ export default function LecturerDashboard() {
 
   // View full list of students for a session
   
-  // ── HANDLE CSV BULK STUDENT UPLOAD (Index Number & Gmail) ──
+  // ── HANDLE CSV/EXCEL BULK STUDENT UPLOAD (Index Number & Gmail) ──
   const handleCSVUpload = async (e) => {
     e.preventDefault();
     if (!uploadFile) {
-      alert("Please select a CSV file to upload.");
+      alert("Please select an Excel (.xlsx / .xls) or CSV file to upload.");
       return;
     }
 
     setUploading(true);
     setUploadFeedback(null);
 
+    const targetGroupName = selectedGroup || groups[0] || "";
+    const levelCode = selectedLevel?.code || selectedLevel?.id || "L100";
     const formData = new FormData();
     formData.append("file", uploadFile);
+    if (targetGroupName) formData.append("group_name", targetGroupName);
+    formData.append("level_code", levelCode);
 
     try {
-      const res = await request("/api/auth/students/import-csv/", {
+      const qs = `?group_name=${encodeURIComponent(targetGroupName)}&level_code=${encodeURIComponent(levelCode)}`;
+      const res = await request(`/api/auth/students/import-csv/${qs}`, {
         method: "POST",
-        body: formData,
-        // Let browser set multipart boundary
-        headers: {}
+        body: formData
       });
 
       const json = await res.json();
@@ -1428,7 +1436,7 @@ export default function LecturerDashboard() {
           msg: json.message || "Students successfully imported!"
         });
         if (selectedLevel) {
-          await selectLevel(selectedLevel);
+          await selectLevel(selectedLevel, targetGroupName);
         }
         setTimeout(() => {
           setShowUploadModal(false);
@@ -1438,7 +1446,7 @@ export default function LecturerDashboard() {
       } else {
         setUploadFeedback({
           type: "error",
-          msg: json.message || "Failed to process CSV."
+          msg: json.message || "Failed to process file."
         });
       }
     } catch (err) {
@@ -2890,6 +2898,29 @@ export default function LecturerDashboard() {
                         accept=".csv,.xlsx,.xls"
                         style={{ display: "none" }}
                       />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const csvContent = "Index Number,Full Name,Email\n5261000018,Klokpa Alberta,5261000018@st.uew.edu.gh\n5261000201,Jennifer Esi Eshun,5261000201@st.uew.edu.gh\n";
+                          const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          a.href = url;
+                          a.download = `${(activeGroupName || "Group").replace(/\s+/g, "_")}_Template.csv`;
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          URL.revokeObjectURL(url);
+                        }}
+                        style={{
+                          display: "inline-flex", alignItems: "center", gap: 6,
+                          background: "#f8fafc", color: "#475569", border: "1px solid #cbd5e1",
+                          padding: "8px 12px", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer"
+                        }}
+                      >
+                        📄 Sample Template
+                      </button>
+
                       <button
                         disabled={uploadingGroupFile}
                         onClick={() => groupCsvInputRef.current?.click()}
