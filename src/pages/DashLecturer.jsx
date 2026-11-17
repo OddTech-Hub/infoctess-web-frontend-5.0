@@ -622,8 +622,19 @@ export default function LecturerDashboard() {
   const [loadingLevel, setLoadingLevel] = useState(false);
 
   const [navItem, setNavItem] = useState("dashboard");
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" ? window.innerWidth <= 768 : false);
+  const [sidebarOpen, setSidebarOpen] = useState(() => typeof window !== "undefined" ? window.innerWidth > 768 : true);
   const [tab, setTab] = useState("reports");
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    const onChange = (e) => {
+      setIsMobile(e.matches);
+      setSidebarOpen(!e.matches);
+    };
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
   const [course, setCourse] = useState("");
   const [group, setGroup] = useState("");
   const [reportType, setReportType] = useState("Cumulative Student Attendance");
@@ -1014,13 +1025,21 @@ export default function LecturerDashboard() {
     if (!repEmail.trim() || !repFirstName.trim()) return;
     setRepLoading(true);
     try {
+      const effectiveCourse = repCourse || (courses[0] ? courses[0].code : "");
+      const courseGroups = effectiveCourse
+        ? groups.filter(g => String(g).toUpperCase().startsWith(effectiveCourse.toUpperCase() + " - "))
+        : groups;
+      const effectiveGroup = (repGroup && (!effectiveCourse || courseGroups.length === 0 || courseGroups.includes(repGroup)))
+        ? repGroup
+        : (courseGroups[0] || (effectiveCourse ? `${effectiveCourse} - Group 1` : "Group 1"));
+
       const payload = {
         first_name: repFirstName.trim(),
         last_name: repLastName.trim(),
         email: repEmail.trim().toLowerCase(),
         index_number: repIndex.trim(),
-        course_code: repCourse || (courses[0] ? courses[0].code : ""),
-        group_id: repGroup || (groups[0] || "Group 1"),
+        course_code: effectiveCourse,
+        group_id: effectiveGroup,
         password: repPassword.trim()
       };
       if (repMode === "existing" && selectedRepStudentId) {
@@ -1158,14 +1177,21 @@ export default function LecturerDashboard() {
         };
 
         setSelectedLevel(updatedLevel);
-        setCourse(coursesList[0]?.code || "");
-        setQrCourse(coursesList[0]?.code || "");
+        const firstCourseCode = coursesList[0]?.code || "";
+        setCourse(firstCourseCode);
+        setQrCourse(firstCourseCode);
+        setRepCourse(prev => (prev && coursesList.some(c => c.code === prev)) ? prev : firstCourseCode);
         const candidateGroup = preferredGroup || (!isSwitchingLevel ? selectedGroup : "");
         const nextSelectedGroup = (candidateGroup && groupNames.includes(candidateGroup))
           ? candidateGroup
           : (groupNames[0] || "");
         setGroup(nextSelectedGroup);
         setSelectedGroup(nextSelectedGroup);
+        const activeRepCourse = (repCourse && coursesList.some(c => c.code === repCourse)) ? repCourse : firstCourseCode;
+        const matchingRepGroups = activeRepCourse
+          ? groupNames.filter(g => String(g).toUpperCase().startsWith(activeRepCourse.toUpperCase() + " - "))
+          : groupNames;
+        setRepGroup(matchingRepGroups[0] || groupNames[0] || (activeRepCourse ? `${activeRepCourse} - Group 1` : "Group 1"));
 
         if (jsonAlert.success && Array.isArray(jsonAlert.data)) {
           setFlaggedList(jsonAlert.data.filter(a => a.status === 'open'));
@@ -1576,27 +1602,36 @@ export default function LecturerDashboard() {
   const groupPieData = level ? getGroupPieData() : [];
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", fontFamily: "'DM Sans','Segoe UI',sans-serif", background: "#f1f5f9", color: "#1e293b" }}>
+    <div style={{ display: "flex", minHeight: "100vh", fontFamily: "'DM Sans','Segoe UI',sans-serif", background: "#f1f5f9", color: "#1e293b", overflowX: "hidden" }}>
+
+      {/* Mobile Sidebar Backdrop */}
+      {isMobile && sidebarOpen && (
+        <div
+          onClick={() => setSidebarOpen(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.55)", zIndex: 80 }}
+        />
+      )}
 
       {/* ══ LEVEL SELECT MODAL ══ */}
       {showLevelModal && (
         <div style={{
           position: "fixed", inset: 0, zIndex: 9999,
           background: "linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#0f2044 100%)",
-          display: "flex", alignItems: "center", justifyContent: "center", padding: 24
+          display: "flex", alignItems: isMobile ? "flex-start" : "center", justifyContent: "center",
+          padding: isMobile ? "20px 14px" : 24, overflowY: "auto"
         }}>
           <div style={{ width: "100%", maxWidth: 700, animation: "slideUp 0.4s ease" }}>
-            <div style={{ textAlign: "center", marginBottom: 40 }}>
+            <div style={{ textAlign: "center", marginBottom: isMobile ? 24 : 40 }}>
               <div style={{ display: "inline-flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
                 <div style={{ width: 48, height: 48, borderRadius: 14, background: "linear-gradient(135deg,#3b82f6,#1d4ed8)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <GraduationCap size={26} color="white" />
                 </div>
                 <div style={{ textAlign: "left" }}>
-                  <div style={{ color: "white", fontWeight: 800, fontSize: 22 }}>SMART ATTENDANCE</div>
+                  <div style={{ color: "white", fontWeight: 800, fontSize: isMobile ? 18 : 22 }}>SMART ATTENDANCE</div>
                   <div style={{ color: "#64748b", fontSize: 12 }}>Class Register · Lecturer Portal</div>
                 </div>
               </div>
-              <h2 style={{ color: "white", fontSize: 28, fontWeight: 800, margin: "0 0 8px" }}>Select Your Level</h2>
+              <h2 style={{ color: "white", fontSize: isMobile ? 22 : 28, fontWeight: 800, margin: "0 0 8px" }}>Select Your Level</h2>
               <p style={{ color: "#64748b", fontSize: 14, margin: 0 }}>Choose the student level to load attendance data for</p>
             </div>
 
@@ -1611,7 +1646,7 @@ export default function LecturerDashboard() {
                 <div style={{ color: "#94a3b8", fontSize: 14 }}>Loading level data…</div>
               </div>
             ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
                 {levels.map(lvl => (
                   <button key={lvl.id} onClick={() => selectLevel(lvl)} style={{
                     background: "#1e293b", border: "2px solid #334155", borderRadius: 16,
@@ -1645,19 +1680,28 @@ export default function LecturerDashboard() {
 
       {/* ── SIDEBAR ── */}
       <aside style={{
-        width: sidebarOpen ? 210 : 64, minHeight: "100vh",
+        width: isMobile ? 240 : (sidebarOpen ? 210 : 64), minHeight: "100vh",
         background: "#0f172a", color: "#94a3b8",
         display: "flex", flexDirection: "column",
-        transition: "width 0.3s ease", overflow: "hidden", flexShrink: 0, zIndex: 10
+        transition: isMobile ? "left 0.28s ease" : "width 0.3s ease", overflow: "hidden", flexShrink: 0,
+        ...(isMobile ? {
+          position: "fixed", top: 0, bottom: 0, left: sidebarOpen ? 0 : -260, zIndex: 90,
+          boxShadow: sidebarOpen ? "6px 0 30px rgba(0,0,0,0.35)" : "none"
+        } : { zIndex: 10 })
       }}>
-        <div style={{ padding: sidebarOpen ? "24px 20px 16px" : "24px 12px 16px", display: "flex", alignItems: "center", gap: 10, borderBottom: "1px solid #1e293b" }}>
+        <div style={{ padding: (sidebarOpen || isMobile) ? "24px 20px 16px" : "24px 12px 16px", display: "flex", alignItems: "center", gap: 10, borderBottom: "1px solid #1e293b" }}>
           <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: "linear-gradient(135deg,#3b82f6,#1d4ed8)", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <GraduationCap size={20} color="white" />
           </div>
-          {sidebarOpen && <div><div style={{ color: "#f1f5f9", fontWeight: 700, fontSize: 15 }}>SMART ATTENDANCE</div><div style={{ fontSize: 10, color: "#64748b" }}>Class Register</div></div>}
+          {(sidebarOpen || isMobile) && <div style={{ flex: 1 }}><div style={{ color: "#f1f5f9", fontWeight: 700, fontSize: 15 }}>SMART ATTENDANCE</div><div style={{ fontSize: 10, color: "#64748b" }}>Class Register</div></div>}
+          {isMobile && (
+            <button onClick={() => setSidebarOpen(false)} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", padding: 4 }}>
+              <X size={18} />
+            </button>
+          )}
         </div>
 
-        {sidebarOpen && level && (
+        {(sidebarOpen || isMobile) && level && (
           <div style={{ margin: "12px 12px 0", padding: "10px 12px", background: "#1e293b", borderRadius: 10, border: `1px solid ${level.color}33` }}>
             <div style={{ fontSize: 10, color: "#64748b", marginBottom: 3 }}>CURRENT LEVEL</div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -1670,34 +1714,34 @@ export default function LecturerDashboard() {
         )}
 
         <nav style={{ padding: "16px 8px", flex: 1 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "1px", color: "#475569", padding: sidebarOpen ? "0 12px 8px" : "0 0 8px", textAlign: sidebarOpen ? "left" : "center" }}>
-            {sidebarOpen ? "NAVIGATION" : "·"}
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "1px", color: "#475569", padding: (sidebarOpen || isMobile) ? "0 12px 8px" : "0 0 8px", textAlign: (sidebarOpen || isMobile) ? "left" : "center" }}>
+            {(sidebarOpen || isMobile) ? "NAVIGATION" : "·"}
           </div>
           {navLinks.map(({ key, label, icon: Icon }) => {
             const hasBadge = key === "students" && flaggedList.length > 0;
             return (
-              <div key={key} onClick={() => setNavItem(key)} style={{
+              <div key={key} onClick={() => { setNavItem(key); if (isMobile) setSidebarOpen(false); }} style={{
                 display: "flex", alignItems: "center", gap: 12,
-                padding: sidebarOpen ? "10px 12px" : "10px 0",
-                justifyContent: sidebarOpen ? "flex-start" : "center",
+                padding: (sidebarOpen || isMobile) ? "10px 12px" : "10px 0",
+                justifyContent: (sidebarOpen || isMobile) ? "flex-start" : "center",
                 borderRadius: 10, marginBottom: 4, cursor: "pointer",
                 background: navItem === key ? "#1e3a5f" : "transparent",
                 color: navItem === key ? "#60a5fa" : "#94a3b8",
                 transition: "all 0.2s", position: "relative"
               }}>
                 <Icon size={18} style={{ flexShrink: 0 }} />
-                {sidebarOpen && <span style={{ fontSize: 14, fontWeight: navItem === key ? 600 : 400, flex: 1 }}>{label}</span>}
-                {hasBadge && sidebarOpen && <span style={{ background: "#ef4444", color: "white", fontSize: 10, fontWeight: 700, padding: "1px 7px", borderRadius: 20 }}>{flaggedList.length}</span>}
-                {hasBadge && !sidebarOpen && <span style={{ position: "absolute", top: 6, right: 6, width: 8, height: 8, borderRadius: "50%", background: "#ef4444" }} />}
+                {(sidebarOpen || isMobile) && <span style={{ fontSize: 14, fontWeight: navItem === key ? 600 : 400, flex: 1 }}>{label}</span>}
+                {hasBadge && (sidebarOpen || isMobile) && <span style={{ background: "#ef4444", color: "white", fontSize: 10, fontWeight: 700, padding: "1px 7px", borderRadius: 20 }}>{flaggedList.length}</span>}
+                {hasBadge && !(sidebarOpen || isMobile) && <span style={{ position: "absolute", top: 6, right: 6, width: 8, height: 8, borderRadius: "50%", background: "#ef4444" }} />}
               </div>
             );
           })}
         </nav>
 
-        <div style={{ borderTop: "1px solid #1e293b", padding: sidebarOpen ? "16px 20px" : "16px 8px" }}>
-          {sidebarOpen && <div style={{ marginBottom: 12 }}><div style={{ color: "#e2e8f0", fontWeight: 600, fontSize: 14 }}>{lecturerName}</div><div style={{ color: "#64748b", fontSize: 12 }}>Lecturer</div></div>}
-          <div onClick={() => { sessionStorage.clear(); navigate("/login"); }} style={{ display: "flex", alignItems: "center", gap: 8, color: "#64748b", cursor: "pointer", fontSize: 13, justifyContent: sidebarOpen ? "flex-start" : "center" }}>
-            <LogOut size={16} />{sidebarOpen && "Sign Out"}
+        <div style={{ borderTop: "1px solid #1e293b", padding: (sidebarOpen || isMobile) ? "16px 20px" : "16px 8px" }}>
+          {(sidebarOpen || isMobile) && <div style={{ marginBottom: 12 }}><div style={{ color: "#e2e8f0", fontWeight: 600, fontSize: 14 }}>{lecturerName}</div><div style={{ color: "#64748b", fontSize: 12 }}>Lecturer</div></div>}
+          <div onClick={() => { sessionStorage.clear(); navigate("/login"); }} style={{ display: "flex", alignItems: "center", gap: 8, color: "#64748b", cursor: "pointer", fontSize: 13, justifyContent: (sidebarOpen || isMobile) ? "flex-start" : "center" }}>
+            <LogOut size={16} />{(sidebarOpen || isMobile) && "Sign Out"}
           </div>
         </div>
       </aside>
@@ -1706,26 +1750,26 @@ export default function LecturerDashboard() {
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
 
         {/* Topbar */}
-        <header style={{ height: 56, background: "white", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 28px", gap: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <button onClick={() => setSidebarOpen(o => !o)} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", padding: 4 }}>
+        <header style={{ minHeight: 56, background: "white", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", padding: isMobile ? "8px 14px" : "0 28px", gap: isMobile ? 8 : 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button onClick={() => setSidebarOpen(o => !o)} aria-label="Toggle sidebar" style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", padding: 4, display: "flex", alignItems: "center" }}>
               {sidebarOpen ? <PanelLeftClose size={20} /> : <PanelLeftOpen size={20} />}
             </button>
             {level && (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, background: level.bg, border: `1px solid ${level.border}`, padding: "4px 12px", borderRadius: 40 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, background: level.bg, border: `1px solid ${level.border}`, padding: "4px 10px", borderRadius: 40 }}>
                 <span style={{ fontSize: 12, fontWeight: 800, color: level.color }}>{level.id}</span>
-                <span style={{ fontSize: 12, color: level.color, fontWeight: 500 }}>{level.year}</span>
+                {!isMobile && <span style={{ fontSize: 12, color: level.color, fontWeight: 500 }}>{level.year}</span>}
               </div>
             )}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <button onClick={() => setShowLevelModal(true)} style={{ display: "flex", alignItems: "center", gap: 8, background: "#0f172a", color: "#60a5fa", border: "1px solid #1e3a5f", borderRadius: 9, padding: "7px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-              <Layers size={15} /> Switch Level
+          <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12, flexWrap: "wrap" }}>
+            <button onClick={() => setShowLevelModal(true)} style={{ display: "flex", alignItems: "center", gap: 6, background: "#0f172a", color: "#60a5fa", border: "1px solid #1e3a5f", borderRadius: 9, padding: isMobile ? "6px 10px" : "7px 16px", fontSize: isMobile ? 12 : 13, fontWeight: 600, cursor: "pointer" }}>
+              <Layers size={14} /> {isMobile ? "Level" : "Switch Level"}
             </button>
-            <button onClick={() => setShowCoursesModal(true)} style={{ display: "flex", alignItems: "center", gap: 8, background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 14px", fontSize: 13, color: "#475569", cursor: "pointer" }}>
-              <Settings size={15} /> Manage Courses
+            <button onClick={() => setShowCoursesModal(true)} style={{ display: "flex", alignItems: "center", gap: 6, background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: 8, padding: isMobile ? "6px 10px" : "6px 14px", fontSize: isMobile ? 12 : 13, color: "#475569", cursor: "pointer" }}>
+              <Settings size={14} /> {isMobile ? "Courses" : "Manage Courses"}
             </button>
-            <span style={{ fontSize: 13, fontWeight: 600, color: "#334155" }}>{lecturerName}</span>
+            {!isMobile && <span style={{ fontSize: 13, fontWeight: 600, color: "#334155" }}>{lecturerName}</span>}
           </div>
         </header>
 
@@ -1741,16 +1785,16 @@ export default function LecturerDashboard() {
 
         {/* ══ DASHBOARD PAGE ══ */}
         {level && navItem === "dashboard" && (
-          <main style={{ flex: 1, padding: "28px 32px", overflowY: "auto" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+          <main style={{ flex: 1, padding: isMobile ? "16px 14px" : "28px 32px", overflowY: "auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: isMobile ? 16 : 24, flexWrap: "wrap", gap: 12 }}>
               <div>
-                <h1 style={{ fontSize: 24, fontWeight: 700, color: "#0f172a", margin: 0 }}>Lecturer Dashboard</h1>
-                <p style={{ fontSize: 13, color: "#64748b", margin: "4px 0 0" }}>{level.label} · {level.year} — Manage students, view reports and attendance analytics</p>
+                <h1 style={{ fontSize: isMobile ? 20 : 24, fontWeight: 700, color: "#0f172a", margin: 0 }}>Lecturer Dashboard</h1>
+                <p style={{ fontSize: isMobile ? 12 : 13, color: "#64748b", margin: "4px 0 0" }}>{level.label} · {level.year} — Manage students, view reports and attendance analytics</p>
               </div>
             </div>
 
             {/* Stat Cards */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 28 }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4,1fr)", gap: isMobile ? 12 : 16, marginBottom: isMobile ? 20 : 28 }}>
               {STATS.map(({ label, value, icon: Icon, color, bg, sub }) => (
                 <div key={label} style={{ background: "white", borderRadius: 14, padding: "20px 22px", border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -1768,15 +1812,15 @@ export default function LecturerDashboard() {
             </div>
 
             {/* Tabs */}
-            <div style={{ display: "flex", gap: 0, background: "white", borderRadius: 12, padding: 4, marginBottom: 24, border: "1px solid #e2e8f0", width: "fit-content", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+            <div style={{ display: "flex", gap: 0, background: "white", borderRadius: 12, padding: 4, marginBottom: isMobile ? 18 : 24, border: "1px solid #e2e8f0", width: isMobile ? "100%" : "fit-content", maxWidth: "100%", overflowX: "auto", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
               {[
                 { key: "reports", label: "Reports", icon: BarChart2 },
                 { key: "qr", label: "QR Session", icon: QrCode },
                 { key: "charts", label: "Charts", icon: TrendingUp },
               ].map(({ key, label, icon: Icon }) => (
                 <button key={key} onClick={() => setTab(key)} style={{
-                  display: "flex", alignItems: "center", gap: 8, padding: "9px 22px",
-                  border: "none", cursor: "pointer", borderRadius: 9,
+                  display: "flex", alignItems: "center", justifyContent: "center", flex: isMobile ? 1 : "none", gap: 8, padding: isMobile ? "9px 12px" : "9px 22px",
+                  border: "none", cursor: "pointer", borderRadius: 9, whiteSpace: "nowrap",
                   background: tab === key ? "#1e3a5f" : "transparent",
                   color: tab === key ? "#60a5fa" : "#64748b",
                   fontWeight: tab === key ? 600 : 400, fontSize: 13, transition: "all 0.2s"
@@ -1846,38 +1890,40 @@ export default function LecturerDashboard() {
                   ))}
                 </div>
                 {/* Table */}
-                <div style={{ padding: "0 24px 24px" }}>
+                <div style={{ padding: isMobile ? "0 14px 16px" : "0 24px 24px" }}>
                   <div style={{ padding: "16px 0 10px", fontSize: 13, fontWeight: 600, color: "#475569" }}>Class Attendance Metrics · {level.label}</div>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                    <thead>
-                      <tr style={{ background: "#f8fafc" }}>
-                        {["#", "Student Name", "Index Number", "Attended", "Total", "Percentage"].map(h => (
-                          <th key={h} style={{ textAlign: "left", padding: "10px 14px", color: "#64748b", fontWeight: 600, fontSize: 12, borderBottom: "1px solid #e2e8f0" }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {level.students.filter(s => !group || s.group === group).map((row, i) => (
-                        <tr key={row.id} style={{ background: row.pct < 75 ? "#fff7f7" : "white", borderBottom: "1px solid #f1f5f9" }}>
-                          <td style={{ padding: "12px 14px", color: "#94a3b8" }}>{i + 1}</td>
-                          <td style={{ padding: "12px 14px" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <span style={{ fontWeight: 600 }}>{row.name}</span>
-                              {row.flagged && (
-                                <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#fef3c7", color: "#b45309", padding: "1px 7px", borderRadius: 20, fontSize: 10, fontWeight: 700 }}>
-                                  <AlertOctagon size={10} /> ALERT
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td style={{ padding: "12px 14px", color: "#64748b" }}>{row.index}</td>
-                          <td style={{ padding: "12px 14px" }}>{row.attended}</td>
-                          <td style={{ padding: "12px 14px" }}>{row.total}</td>
-                          <td style={{ padding: "12px 14px" }}>{pctBadge(row.pct)}</td>
+                  <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+                    <table style={{ width: "100%", minWidth: 560, borderCollapse: "collapse", fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ background: "#f8fafc" }}>
+                          {["#", "Student Name", "Index Number", "Attended", "Total", "Percentage"].map(h => (
+                            <th key={h} style={{ textAlign: "left", padding: "10px 14px", color: "#64748b", fontWeight: 600, fontSize: 12, borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap" }}>{h}</th>
+                          ))}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {level.students.filter(s => !group || s.group === group).map((row, i) => (
+                          <tr key={row.id} style={{ background: row.pct < 75 ? "#fff7f7" : "white", borderBottom: "1px solid #f1f5f9" }}>
+                            <td style={{ padding: "12px 14px", color: "#94a3b8" }}>{i + 1}</td>
+                            <td style={{ padding: "12px 14px", whiteSpace: "nowrap" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <span style={{ fontWeight: 600 }}>{row.name}</span>
+                                {row.flagged && (
+                                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#fef3c7", color: "#b45309", padding: "1px 7px", borderRadius: 20, fontSize: 10, fontWeight: 700 }}>
+                                    <AlertOctagon size={10} /> ALERT
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td style={{ padding: "12px 14px", color: "#64748b", whiteSpace: "nowrap" }}>{row.index}</td>
+                            <td style={{ padding: "12px 14px" }}>{row.attended}</td>
+                            <td style={{ padding: "12px 14px" }}>{row.total}</td>
+                            <td style={{ padding: "12px 14px" }}>{pctBadge(row.pct)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             )}
@@ -1885,7 +1931,7 @@ export default function LecturerDashboard() {
             {/* ── DASHBOARD > QR TAB ── */}
             
             {tab === "qr" && (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 20 }}>
                 <div style={{ background: "white", borderRadius: 16, border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)", padding: 24 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
                     <QrCode size={18} color="#3b82f6" />
@@ -1992,29 +2038,31 @@ export default function LecturerDashboard() {
                   <div style={{ padding: "18px 24px", borderBottom: "1px solid #f1f5f9", fontWeight: 700, fontSize: 15, display: "flex", alignItems: "center", gap: 8 }}>
                     <RefreshCw size={16} color="#64748b" /> Recent Sessions · {level.label}
                   </div>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                    <thead>
-                      <tr style={{ background: "#f8fafc" }}>
-                        {["Course", "Session Code", "Date", "Check-ins", "Status", "Actions"].map(h => (
-                          <th key={h} style={{ textAlign: "left", padding: "10px 20px", color: "#64748b", fontWeight: 600, fontSize: 12, borderBottom: "1px solid #e2e8f0" }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {level.sessions.map(s => (
-                        <tr key={s.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                          <td style={{ padding: "12px 20px", fontWeight: 600 }}>{s.course}</td>
-                          <td style={{ padding: "12px 20px", color: "#3b82f6", fontWeight: 600 }}>{s.id}</td>
-                          <td style={{ padding: "12px 20px", color: "#64748b" }}>{s.date}</td>
-                          <td style={{ padding: "12px 20px" }}>{s.checkins}</td>
-                          <td style={{ padding: "12px 20px" }}><span style={{ background: "#f1f5f9", color: "#64748b", padding: "3px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600 }}>Closed</span></td>
-                          <td style={{ padding: "12px 20px" }}>
-                            <button onClick={() => handleViewSessionList(s)} style={{ display: "flex", alignItems: "center", gap: 6, background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 8, padding: "6px 14px", fontSize: 12, color: "#1d4ed8", cursor: "pointer", fontWeight: 700 }}><Eye size={13} /> View List</button>
-                          </td>
+                  <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+                    <table style={{ width: "100%", minWidth: 560, borderCollapse: "collapse", fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ background: "#f8fafc" }}>
+                          {["Course", "Session Code", "Date", "Check-ins", "Status", "Actions"].map(h => (
+                            <th key={h} style={{ textAlign: "left", padding: "10px 20px", color: "#64748b", fontWeight: 600, fontSize: 12, borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap" }}>{h}</th>
+                          ))}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {level.sessions.map(s => (
+                          <tr key={s.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                            <td style={{ padding: "12px 20px", fontWeight: 600, whiteSpace: "nowrap" }}>{s.course}</td>
+                            <td style={{ padding: "12px 20px", color: "#3b82f6", fontWeight: 600, whiteSpace: "nowrap" }}>{s.id}</td>
+                            <td style={{ padding: "12px 20px", color: "#64748b", whiteSpace: "nowrap" }}>{s.date}</td>
+                            <td style={{ padding: "12px 20px" }}>{s.checkins}</td>
+                            <td style={{ padding: "12px 20px" }}><span style={{ background: "#f1f5f9", color: "#64748b", padding: "3px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600 }}>Closed</span></td>
+                            <td style={{ padding: "12px 20px", whiteSpace: "nowrap" }}>
+                              <button onClick={() => handleViewSessionList(s)} style={{ display: "flex", alignItems: "center", gap: 6, background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 8, padding: "6px 14px", fontSize: 12, color: "#1d4ed8", cursor: "pointer", fontWeight: 700 }}><Eye size={13} /> View List</button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             )}
@@ -2068,18 +2116,18 @@ export default function LecturerDashboard() {
 
         {/* ══ LIVE SESSION / AUDITORIUM PROJECTOR TAB ══ */}
         {level && navItem === "session" && (
-          <main style={{ flex: 1, padding: "28px 32px", overflowY: "auto" }}>
+          <main style={{ flex: 1, padding: isMobile ? "16px 14px" : "28px 32px", overflowY: "auto" }}>
             {sessionActive ? (
               /* ── LIVE ACTIVE AUDITORIUM PROJECTOR VIEW ── */
               <div style={{
                 background: "linear-gradient(135deg, #071726 0%, #0d2744 50%, #03101d 100%)",
-                borderRadius: 24, padding: "28px 36px", color: "white",
+                borderRadius: isMobile ? 18 : 24, padding: isMobile ? "18px 16px" : "28px 36px", color: "white",
                 boxShadow: "0 20px 40px rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)"
               }}>
                 {/* Top Control Bar */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: 16 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 14, marginBottom: 24, borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: 16 }}>
                   <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4, flexWrap: "wrap" }}>
                       <span style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(34, 197, 94, 0.15)", color: "#4ade80", border: "1px solid rgba(34, 197, 94, 0.3)", padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 800 }}>
                         <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#4ade80", animation: "pulse 1.5s infinite" }} />
                         LIVE PROJECTOR MODE ACTIVE
@@ -2088,13 +2136,13 @@ export default function LecturerDashboard() {
                         {level.label}
                       </span>
                     </div>
-                    <div style={{ fontSize: 22, fontWeight: 900, color: "#f8fafc" }}>
+                    <div style={{ fontSize: isMobile ? 17 : 22, fontWeight: 900, color: "#f8fafc" }}>
                       {qrCourse} — {sessionCourseName || "Course Attendance"}
                     </div>
                   </div>
 
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.08)", padding: "8px 16px", borderRadius: 12, fontSize: 14, fontWeight: 700, color: countdown < 60 ? "#f87171" : "#38bdf8" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.08)", padding: "8px 14px", borderRadius: 12, fontSize: 13, fontWeight: 700, color: countdown < 60 ? "#f87171" : "#38bdf8" }}>
                       <Clock size={16} /> {fmtTime(countdown)} left
                     </div>
 
@@ -2102,14 +2150,14 @@ export default function LecturerDashboard() {
                       type="button"
                       onClick={() => setShowProjector(true)}
                       style={{
-                        padding: "10px 18px", borderRadius: 12,
+                        padding: "10px 16px", borderRadius: 12,
                         background: "linear-gradient(135deg, #0284c7, #2563eb)",
                         color: "white", border: "none", fontWeight: 800, fontSize: 13,
                         cursor: "pointer", display: "flex", alignItems: "center", gap: 8,
                         boxShadow: "0 4px 14px rgba(37,99,235,0.4)"
                       }}
                     >
-                      <Maximize2 size={16} /> ⛶ Fullscreen Projector
+                      <Maximize2 size={16} /> Fullscreen Projector
                     </button>
 
                     <button
@@ -2129,19 +2177,19 @@ export default function LecturerDashboard() {
                 </div>
 
                 {/* Main Projector Grid: Left Big QR & Code | Right Live Roster Stream */}
-                <div style={{ display: "grid", gridTemplateColumns: "1.1fr 1fr", gap: 32, alignItems: "start" }}>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.1fr 1fr", gap: isMobile ? 22 : 32, alignItems: "start" }}>
                   {/* Left Column: Big QR & Passcode */}
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
                     {/* Big Passcode Callout */}
                     <div style={{
                       width: "100%", background: "rgba(15, 23, 42, 0.6)",
                       border: "1px solid rgba(255,255,255,0.1)", borderRadius: 18,
-                      padding: "18px 24px", marginBottom: 20
+                      padding: isMobile ? "14px 16px" : "18px 24px", marginBottom: 20
                     }}>
                       <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 2 }}>
                         90-Second Rotating Passcode
                       </div>
-                      <div style={{ fontSize: 44, fontWeight: 900, letterSpacing: 6, color: "#38bdf8", fontFamily: "monospace", margin: "6px 0" }}>
+                      <div style={{ fontSize: isMobile ? 28 : 44, fontWeight: 900, letterSpacing: isMobile ? 3 : 6, color: "#38bdf8", fontFamily: "monospace", margin: "6px 0" }}>
                         {rotatingToken ? `ATT-${rotatingToken}` : (sessionCode || "ATT-0000")}
                       </div>
                       {/* 90s progress bar */}
@@ -2247,7 +2295,7 @@ export default function LecturerDashboard() {
                 </div>
 
                 {/* Session Launcher & Past Sessions */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 20 }}>
                   {/* Launcher Card */}
                   <div style={{ background: "white", borderRadius: 16, border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)", padding: 24 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
@@ -2339,52 +2387,54 @@ export default function LecturerDashboard() {
                   <div style={{ padding: "18px 24px", borderBottom: "1px solid #f1f5f9", fontWeight: 700, fontSize: 15, display: "flex", alignItems: "center", gap: 8 }}>
                     <RefreshCw size={16} color="#64748b" /> Recent Attendance Sessions · {level.label}
                   </div>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                    <thead>
-                      <tr style={{ background: "#f8fafc" }}>
-                        {["Course", "Session Code", "Date", "Check-ins", "Status", "Actions"].map(h => (
-                          <th key={h} style={{ textAlign: "left", padding: "10px 16px", color: "#64748b", fontWeight: 600, fontSize: 12, borderBottom: "1px solid #e2e8f0" }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {recentSessions.length === 0 ? (
-                        <tr><td colSpan={6} style={{ padding: "28px 16px", textAlign: "center", color: "#94a3b8" }}>No recent sessions found for this level.</td></tr>
-                      ) : (
-                        recentSessions.map((s, i) => (
-                          <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                            <td style={{ padding: "12px 16px", fontWeight: 600, color: "#1e293b" }}>{s.course}</td>
-                            <td style={{ padding: "12px 16px", color: "#3b82f6", fontWeight: 700, fontFamily: "monospace" }}>{s.id}</td>
-                            <td style={{ padding: "12px 16px", color: "#64748b" }}>{s.date}</td>
-                            <td style={{ padding: "12px 16px", fontWeight: 700 }}>{s.checkins}</td>
-                            <td style={{ padding: "12px 16px" }}>
-                              <span style={{
-                                background: s.status === "active" ? "#dcfce7" : "#f1f5f9",
-                                color: s.status === "active" ? "#166534" : "#64748b",
-                                padding: "2px 8px", borderRadius: 12, fontSize: 11, fontWeight: 700
-                              }}>
-                                {s.status === "active" ? "Active" : "Closed"}
-                              </span>
-                            </td>
-                            <td style={{ padding: "12px 16px" }}>
-                              <button
-                                type="button"
-                                onClick={() => handleViewSessionList(s)}
-                                style={{
-                                  display: "inline-flex", alignItems: "center", gap: 4,
-                                  padding: "5px 11px", borderRadius: 8, border: "1px solid #bfdbfe",
-                                  background: "#eff6ff", color: "#1d4ed8", fontWeight: 700, fontSize: 12,
-                                  cursor: "pointer"
-                                }}
-                              >
-                                <Users size={13} /> View List
-                              </button>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
+                  <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+                    <table style={{ width: "100%", minWidth: 560, borderCollapse: "collapse", fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ background: "#f8fafc" }}>
+                          {["Course", "Session Code", "Date", "Check-ins", "Status", "Actions"].map(h => (
+                            <th key={h} style={{ textAlign: "left", padding: "10px 16px", color: "#64748b", fontWeight: 600, fontSize: 12, borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap" }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {recentSessions.length === 0 ? (
+                          <tr><td colSpan={6} style={{ padding: "28px 16px", textAlign: "center", color: "#94a3b8" }}>No recent sessions found for this level.</td></tr>
+                        ) : (
+                          recentSessions.map((s, i) => (
+                            <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                              <td style={{ padding: "12px 16px", fontWeight: 600, color: "#1e293b", whiteSpace: "nowrap" }}>{s.course}</td>
+                              <td style={{ padding: "12px 16px", color: "#3b82f6", fontWeight: 700, fontFamily: "monospace", whiteSpace: "nowrap" }}>{s.id}</td>
+                              <td style={{ padding: "12px 16px", color: "#64748b", whiteSpace: "nowrap" }}>{s.date}</td>
+                              <td style={{ padding: "12px 16px", fontWeight: 700 }}>{s.checkins}</td>
+                              <td style={{ padding: "12px 16px" }}>
+                                <span style={{
+                                  background: s.status === "active" ? "#dcfce7" : "#f1f5f9",
+                                  color: s.status === "active" ? "#166534" : "#64748b",
+                                  padding: "2px 8px", borderRadius: 12, fontSize: 11, fontWeight: 700
+                                }}>
+                                  {s.status === "active" ? "Active" : "Closed"}
+                                </span>
+                              </td>
+                              <td style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleViewSessionList(s)}
+                                  style={{
+                                    display: "inline-flex", alignItems: "center", gap: 4,
+                                    padding: "5px 11px", borderRadius: 8, border: "1px solid #bfdbfe",
+                                    background: "#eff6ff", color: "#1d4ed8", fontWeight: 700, fontSize: 12,
+                                    cursor: "pointer"
+                                  }}
+                                >
+                                  <Users size={13} /> View List
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             )}
@@ -2392,14 +2442,14 @@ export default function LecturerDashboard() {
         )}
         {/* ══ REPORTS PAGE (nav-driven, separate from dashboard) ══ */}
         {level && navItem === "reports" && (
-          <main style={{ flex: 1, padding: "28px 32px", overflowY: "auto" }}>
-            <div style={{ marginBottom: 24 }}>
-              <h1 style={{ fontSize: 24, fontWeight: 700, color: "#0f172a", margin: 0 }}>Attendance Reports</h1>
-              <p style={{ fontSize: 13, color: "#64748b", margin: "4px 0 0" }}>{level.label} · {level.year} — Group statistics and attendance breakdown</p>
+          <main style={{ flex: 1, padding: isMobile ? "16px 14px" : "28px 32px", overflowY: "auto" }}>
+            <div style={{ marginBottom: isMobile ? 16 : 24 }}>
+              <h1 style={{ fontSize: isMobile ? 20 : 24, fontWeight: 700, color: "#0f172a", margin: 0 }}>Attendance Reports</h1>
+              <p style={{ fontSize: isMobile ? 12 : 13, color: "#64748b", margin: "4px 0 0" }}>{level.label} · {level.year} — Group statistics and attendance breakdown</p>
             </div>
 
             {/* Summary cards */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16, marginBottom: 28 }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: isMobile ? 12 : 16, marginBottom: isMobile ? 20 : 28 }}>
               {[
                 { label: "Enrolled Students", value: level.students.length, color: "#3b82f6", bg: "#eff6ff", icon: Users },
                 { label: "Avg. Attendance", value: `${level.students.length > 0 ? Math.round(level.students.reduce((a, s) => a + s.pct, 0) / level.students.length) : 0}%`, color: "#10b981", bg: "#ecfdf5", icon: TrendingUp },
@@ -2420,7 +2470,7 @@ export default function LecturerDashboard() {
             </div>
 
             {/* Pie chart + bar chart side by side */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 24 }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 20, marginBottom: 24 }}>
               {/* Pie chart */}
               <div style={{ background: "white", borderRadius: 16, border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)", padding: 28 }}>
                 <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>Group Attendance Distribution</div>
@@ -2471,7 +2521,7 @@ export default function LecturerDashboard() {
 
             {/* Detailed student table */}
             <div style={{ background: "white", borderRadius: 16, border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)", overflow: "hidden" }}>
-              <div style={{ padding: "18px 24px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ padding: isMobile ? "14px 16px" : "18px 24px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 15 }}>Detailed Student Attendance</div>
                   <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>All students · {level.label}</div>
@@ -2480,49 +2530,51 @@ export default function LecturerDashboard() {
                   <Download size={14} /> Export CSV
                 </button>
               </div>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                <thead>
-                  <tr style={{ background: "#f8fafc" }}>
-                    {["#", "Student", "Index", "Group", "Attended", "Total", "Rate", "Status"].map(h => (
-                      <th key={h} style={{ textAlign: "left", padding: "10px 16px", color: "#64748b", fontWeight: 600, fontSize: 12, borderBottom: "1px solid #e2e8f0" }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {[...level.students].sort((a, b) => b.pct - a.pct).map((row, i) => (
-                    <tr key={row.id} style={{ background: row.pct < 75 ? "#fff7f7" : "white", borderBottom: "1px solid #f1f5f9" }}>
-                      <td style={{ padding: "11px 16px", color: "#94a3b8" }}>{i + 1}</td>
-                      <td style={{ padding: "11px 16px" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <div style={{ width: 28, height: 28, borderRadius: 8, background: row.pct >= 75 ? "#dbeafe" : "#fee2e2", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: row.pct >= 75 ? "#1e40af" : "#991b1b", flexShrink: 0 }}>
-                            {row.name.charAt(0)}
-                          </div>
-                          <div>
-                            <div style={{ fontWeight: 600 }}>{row.name}</div>
-                            {row.flagged && <div style={{ fontSize: 10, color: "#b45309", fontWeight: 600 }}>⚠ Device alert</div>}
-                          </div>
-                        </div>
-                      </td>
-                      <td style={{ padding: "11px 16px", color: "#64748b", fontSize: 12 }}>{row.index}</td>
-                      <td style={{ padding: "11px 16px" }}>
-                        <span style={{ fontSize: 11, background: "#f1f5f9", color: "#475569", padding: "2px 8px", borderRadius: 20, fontWeight: 600 }}>{row.group}</span>
-                      </td>
-                      <td style={{ padding: "11px 16px", fontWeight: 600 }}>{row.attended}</td>
-                      <td style={{ padding: "11px 16px", color: "#64748b" }}>{row.total}</td>
-                      <td style={{ padding: "11px 16px" }}>{pctBadge(row.pct)}</td>
-                      <td style={{ padding: "11px 16px" }}>
-                        <span style={{
-                          fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20,
-                          background: row.pct === 100 ? "#dbeafe" : row.pct >= 75 ? "#d1fae5" : row.pct >= 50 ? "#fef3c7" : "#fee2e2",
-                          color: row.pct === 100 ? "#1e40af" : row.pct >= 75 ? "#065f46" : row.pct >= 50 ? "#b45309" : "#991b1b"
-                        }}>
-                          {row.pct === 100 ? "Perfect" : row.pct >= 75 ? "Good" : row.pct >= 50 ? "At Risk" : "Critical"}
-                        </span>
-                      </td>
+              <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+                <table style={{ width: "100%", minWidth: 680, borderCollapse: "collapse", fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ background: "#f8fafc" }}>
+                      {["#", "Student", "Index", "Group", "Attended", "Total", "Rate", "Status"].map(h => (
+                        <th key={h} style={{ textAlign: "left", padding: "10px 16px", color: "#64748b", fontWeight: 600, fontSize: 12, borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap" }}>{h}</th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {[...level.students].sort((a, b) => b.pct - a.pct).map((row, i) => (
+                      <tr key={row.id} style={{ background: row.pct < 75 ? "#fff7f7" : "white", borderBottom: "1px solid #f1f5f9" }}>
+                        <td style={{ padding: "11px 16px", color: "#94a3b8" }}>{i + 1}</td>
+                        <td style={{ padding: "11px 16px", whiteSpace: "nowrap" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <div style={{ width: 28, height: 28, borderRadius: 8, background: row.pct >= 75 ? "#dbeafe" : "#fee2e2", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: row.pct >= 75 ? "#1e40af" : "#991b1b", flexShrink: 0 }}>
+                              {row.name.charAt(0)}
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: 600 }}>{row.name}</div>
+                              {row.flagged && <div style={{ fontSize: 10, color: "#b45309", fontWeight: 600 }}>⚠ Device alert</div>}
+                            </div>
+                          </div>
+                        </td>
+                        <td style={{ padding: "11px 16px", color: "#64748b", fontSize: 12, whiteSpace: "nowrap" }}>{row.index}</td>
+                        <td style={{ padding: "11px 16px", whiteSpace: "nowrap" }}>
+                          <span style={{ fontSize: 11, background: "#f1f5f9", color: "#475569", padding: "2px 8px", borderRadius: 20, fontWeight: 600 }}>{row.group}</span>
+                        </td>
+                        <td style={{ padding: "11px 16px", fontWeight: 600 }}>{row.attended}</td>
+                        <td style={{ padding: "11px 16px", color: "#64748b" }}>{row.total}</td>
+                        <td style={{ padding: "11px 16px" }}>{pctBadge(row.pct)}</td>
+                        <td style={{ padding: "11px 16px", whiteSpace: "nowrap" }}>
+                          <span style={{
+                            fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20,
+                            background: row.pct === 100 ? "#dbeafe" : row.pct >= 75 ? "#d1fae5" : row.pct >= 50 ? "#fef3c7" : "#fee2e2",
+                            color: row.pct === 100 ? "#1e40af" : row.pct >= 75 ? "#065f46" : row.pct >= 50 ? "#b45309" : "#991b1b"
+                          }}>
+                            {row.pct === 100 ? "Perfect" : row.pct >= 75 ? "Good" : row.pct >= 50 ? "At Risk" : "Critical"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </main>
         )}
@@ -2530,14 +2582,16 @@ export default function LecturerDashboard() {
         {/* ══ STUDENTS PAGE ══ */}
         {level && navItem === "students" && (
           <div style={{
-            position: "fixed", inset: "56px 0 0 210px",
+            position: isMobile ? "static" : "fixed",
+            inset: isMobile ? undefined : "56px 0 0 210px",
+            flex: isMobile ? 1 : undefined,
             background: "#f1f5f9", overflowY: "auto", zIndex: 5,
-            padding: "28px 32px",
-            left: sidebarOpen ? 210 : 64, transition: "left 0.3s ease"
+            padding: isMobile ? "16px 14px" : "28px 32px",
+            left: isMobile ? 0 : (sidebarOpen ? 210 : 64), transition: "left 0.3s ease"
           }}>
-            <div style={{ marginBottom: 24 }}>
-              <h1 style={{ fontSize: 24, fontWeight: 700, color: "#0f172a", margin: 0 }}>Students</h1>
-              <p style={{ fontSize: 13, color: "#64748b", margin: "4px 0 0" }}>{level.label} · {level.year} — {level.students.length} enrolled students</p>
+            <div style={{ marginBottom: isMobile ? 16 : 24 }}>
+              <h1 style={{ fontSize: isMobile ? 20 : 24, fontWeight: 700, color: "#0f172a", margin: 0 }}>Students</h1>
+              <p style={{ fontSize: isMobile ? 12 : 13, color: "#64748b", margin: "4px 0 0" }}>{level.label} · {level.year} — {level.students.length} enrolled students</p>
             </div>
 
             {flaggedList.length > 0 && (
@@ -2583,66 +2637,68 @@ export default function LecturerDashboard() {
 
               return (
                 <div style={{ background: "white", borderRadius: 16, border: "1px solid #e2e8f0", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                    <thead>
-                      <tr style={{ background: "#f8fafc" }}>
-                        {["#", "Student Name", "Index Number", "Group", "Device", "Attended", "Total", "Attendance Status"].map(h => (
-                          <th key={h} style={{ textAlign: "left", padding: "12px 16px", color: "#64748b", fontWeight: 700, fontSize: 12, borderBottom: "1px solid #e2e8f0" }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sortedStudentsList.length === 0 ? (
-                        <tr>
-                          <td colSpan={8} style={{ textAlign: "center", padding: "36px", color: "#94a3b8", fontSize: 14 }}>
-                            No students enrolled yet. Navigate to the <strong>Groups</strong> tab to enroll students!
-                          </td>
+                  <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+                    <table style={{ width: "100%", minWidth: 720, borderCollapse: "collapse", fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ background: "#f8fafc" }}>
+                          {["#", "Student Name", "Index Number", "Group", "Device", "Attended", "Total", "Attendance Status"].map(h => (
+                            <th key={h} style={{ textAlign: "left", padding: "12px 16px", color: "#64748b", fontWeight: 700, fontSize: 12, borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap" }}>{h}</th>
+                          ))}
                         </tr>
-                      ) : (
-                        sortedStudentsList.map((row, i) => (
-                          <tr key={row.id || i} style={{ background: row.flagged ? "#fffbeb" : row.pct < 75 ? "#fff7f7" : "white", borderBottom: "1px solid #f1f5f9" }}>
-                            <td style={{ padding: "12px 16px", color: "#94a3b8" }}>{i + 1}</td>
-                            <td style={{ padding: "12px 16px" }}>
-                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <span style={{ fontWeight: 600, color: "#0f172a" }}>{row.name}</span>
-                                {row.flagged && (
-                                  <span style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "#fef3c7", color: "#b45309", padding: "1px 7px", borderRadius: 20, fontSize: 10, fontWeight: 700, cursor: "pointer" }}
-                                    onClick={() => setAlertModalStudent(row)}>
-                                    <AlertOctagon size={9} /> ALERT
-                                  </span>
-                                )}
-                              </div>
+                      </thead>
+                      <tbody>
+                        {sortedStudentsList.length === 0 ? (
+                          <tr>
+                            <td colSpan={8} style={{ textAlign: "center", padding: "36px", color: "#94a3b8", fontSize: 14 }}>
+                              No students enrolled yet. Navigate to the <strong>Groups</strong> tab to enroll students!
                             </td>
-                            <td style={{ padding: "12px 16px", color: "#64748b", fontFamily: "monospace" }}>{row.index}</td>
-                            <td style={{ padding: "12px 16px" }}>
-                              <span style={{
-                                display: "inline-block",
-                                background: "#eff6ff",
-                                color: "#1d4ed8",
-                                padding: "3px 10px",
-                                borderRadius: 20,
-                                fontSize: 12,
-                                fontWeight: 700,
-                                border: "1px solid #bfdbfe"
-                              }}>
-                                {row.group || "Unassigned"}
-                              </span>
-                            </td>
-                            <td style={{ padding: "12px 16px" }}>
-                              <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: row.flagged ? "#fef3c7" : "#f1f5f9", color: row.flagged ? "#b45309" : "#64748b", padding: "3px 9px", borderRadius: 20, fontSize: 12 }}>
-                                {row.flagged && <AlertOctagon size={10} />}
-                                <Smartphone size={10} />
-                                {row.device}
-                              </span>
-                            </td>
-                            <td style={{ padding: "12px 16px", fontWeight: 600 }}>{row.attended}</td>
-                            <td style={{ padding: "12px 16px", color: "#64748b" }}>{row.total}</td>
-                            <td style={{ padding: "12px 16px" }}>{pctBadge(row.pct)}</td>
                           </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
+                        ) : (
+                          sortedStudentsList.map((row, i) => (
+                            <tr key={row.id || i} style={{ background: row.flagged ? "#fffbeb" : row.pct < 75 ? "#fff7f7" : "white", borderBottom: "1px solid #f1f5f9" }}>
+                              <td style={{ padding: "12px 16px", color: "#94a3b8" }}>{i + 1}</td>
+                              <td style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                  <span style={{ fontWeight: 600, color: "#0f172a" }}>{row.name}</span>
+                                  {row.flagged && (
+                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "#fef3c7", color: "#b45309", padding: "1px 7px", borderRadius: 20, fontSize: 10, fontWeight: 700, cursor: "pointer" }}
+                                      onClick={() => setAlertModalStudent(row)}>
+                                      <AlertOctagon size={9} /> ALERT
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              <td style={{ padding: "12px 16px", color: "#64748b", fontFamily: "monospace", whiteSpace: "nowrap" }}>{row.index}</td>
+                              <td style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
+                                <span style={{
+                                  display: "inline-block",
+                                  background: "#eff6ff",
+                                  color: "#1d4ed8",
+                                  padding: "3px 10px",
+                                  borderRadius: 20,
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  border: "1px solid #bfdbfe"
+                                }}>
+                                  {row.group || "Unassigned"}
+                                </span>
+                              </td>
+                              <td style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
+                                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: row.flagged ? "#fef3c7" : "#f1f5f9", color: row.flagged ? "#b45309" : "#64748b", padding: "3px 9px", borderRadius: 20, fontSize: 12 }}>
+                                  {row.flagged && <AlertOctagon size={10} />}
+                                  <Smartphone size={10} />
+                                  {row.device}
+                                </span>
+                              </td>
+                              <td style={{ padding: "12px 16px", fontWeight: 600 }}>{row.attended}</td>
+                              <td style={{ padding: "12px 16px", color: "#64748b" }}>{row.total}</td>
+                              <td style={{ padding: "12px 16px" }}>{pctBadge(row.pct)}</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               );
             })()}
@@ -2683,7 +2739,7 @@ export default function LecturerDashboard() {
                             <div style={{ fontSize: 11, color: "#94a3b8" }}>{s.attended}/{s.total} sessions</div>
                           </div>
                         </div>
-                        <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+                        <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
                           <button onClick={() => setAlertModalStudent(s)} style={{ display: "flex", alignItems: "center", gap: 6, background: "#1e3a5f", color: "#60a5fa", border: "none", borderRadius: 8, padding: "7px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
                             <Eye size={13} /> View Details
                           </button>
@@ -2705,11 +2761,11 @@ export default function LecturerDashboard() {
 
         {/* ══ GROUPS PAGE ══ */}
         {level && navItem === "groups" && (
-          <main style={{ flex: 1, padding: "28px 32px", overflowY: "auto" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+          <main style={{ flex: 1, padding: isMobile ? "16px 14px" : "28px 32px", overflowY: "auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: isMobile ? 16 : 24 }}>
               <div>
-                <h2 style={{ fontSize: 20, fontWeight: 700, color: "#0f172a", margin: 0 }}>Groups Roster & Performance</h2>
-                <p style={{ fontSize: 13, color: "#64748b", margin: "4px 0 0" }}>
+                <h2 style={{ fontSize: isMobile ? 18 : 20, fontWeight: 700, color: "#0f172a", margin: 0 }}>Groups Roster &amp; Performance</h2>
+                <p style={{ fontSize: isMobile ? 12 : 13, color: "#64748b", margin: "4px 0 0" }}>
                   {level.label} · {level.year} — Student attendance distribution across groups. Truant students (&lt;40%) highlighted.
                 </p>
               </div>
@@ -3003,62 +3059,64 @@ export default function LecturerDashboard() {
                       <div style={{ fontWeight: 600 }}>No students in this category for {activeGroupName}</div>
                     </div>
                   ) : (
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                      <thead>
-                        <tr style={{ background: "#f8fafc" }}>
-                          {["#", "Student Name", "Index Number", "Attended / Total", "Attendance Rate", "Status"].map(h => (
-                            <th key={h} style={{ textAlign: "left", padding: "12px 18px", color: "#64748b", fontWeight: 600, fontSize: 12, borderBottom: "1px solid #e2e8f0" }}>{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {sortedGroupStudents.map((row, i) => {
-                          const isTruant = row.pct < 40;
-                          return (
-                            <tr key={row.id} style={{ background: isTruant ? "#fef2f2" : "white", borderBottom: "1px solid #f1f5f9" }}>
-                              <td style={{ padding: "12px 18px", color: "#94a3b8", fontWeight: 500 }}>{i + 1}</td>
-                              <td style={{ padding: "12px 18px" }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                                  <div style={{
-                                    width: 32, height: 32, borderRadius: 8,
-                                    background: isTruant ? "#fee2e2" : row.pct >= 75 ? "#dbeafe" : "#fef3c7",
-                                    color: isTruant ? "#dc2626" : row.pct >= 75 ? "#1e40af" : "#d97706",
-                                    display: "flex", alignItems: "center", justifyContent: "center",
-                                    fontSize: 12, fontWeight: 700, flexShrink: 0
-                                  }}>
-                                    {row.name.charAt(0)}
+                    <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+                      <table style={{ width: "100%", minWidth: 640, borderCollapse: "collapse", fontSize: 13 }}>
+                        <thead>
+                          <tr style={{ background: "#f8fafc" }}>
+                            {["#", "Student Name", "Index Number", "Attended / Total", "Attendance Rate", "Status"].map(h => (
+                              <th key={h} style={{ textAlign: "left", padding: "12px 18px", color: "#64748b", fontWeight: 600, fontSize: 12, borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap" }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {sortedGroupStudents.map((row, i) => {
+                            const isTruant = row.pct < 40;
+                            return (
+                              <tr key={row.id} style={{ background: isTruant ? "#fef2f2" : "white", borderBottom: "1px solid #f1f5f9" }}>
+                                <td style={{ padding: "12px 18px", color: "#94a3b8", fontWeight: 500 }}>{i + 1}</td>
+                                <td style={{ padding: "12px 18px", whiteSpace: "nowrap" }}>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                    <div style={{
+                                      width: 32, height: 32, borderRadius: 8,
+                                      background: isTruant ? "#fee2e2" : row.pct >= 75 ? "#dbeafe" : "#fef3c7",
+                                      color: isTruant ? "#dc2626" : row.pct >= 75 ? "#1e40af" : "#d97706",
+                                      display: "flex", alignItems: "center", justifyContent: "center",
+                                      fontSize: 12, fontWeight: 700, flexShrink: 0
+                                    }}>
+                                      {row.name.charAt(0)}
+                                    </div>
+                                    <div>
+                                      <div style={{ fontWeight: 600, color: "#0f172a" }}>{row.name}</div>
+                                      {row.flagged && <div style={{ fontSize: 10, color: "#dc2626", fontWeight: 600 }}>⚠ Device Flagged</div>}
+                                    </div>
                                   </div>
-                                  <div>
-                                    <div style={{ fontWeight: 600, color: "#0f172a" }}>{row.name}</div>
-                                    {row.flagged && <div style={{ fontSize: 10, color: "#dc2626", fontWeight: 600 }}>⚠ Device Flagged</div>}
-                                  </div>
-                                </div>
-                              </td>
-                              <td style={{ padding: "12px 18px", color: "#64748b", fontSize: 13, fontWeight: 500 }}>{row.index}</td>
-                              <td style={{ padding: "12px 18px", fontWeight: 600, color: "#1e293b" }}>
-                                {row.attended} / {row.total} sessions
-                              </td>
-                              <td style={{ padding: "12px 18px" }}>{pctBadge(row.pct)}</td>
-                              <td style={{ padding: "12px 18px" }}>
-                                {isTruant ? (
-                                  <span style={{ fontSize: 11, background: "#fee2e2", color: "#dc2626", padding: "3px 10px", borderRadius: 20, fontWeight: 700, border: "1px solid #fecaca" }}>
-                                    ⚠ Truant (&lt;40%)
-                                  </span>
-                                ) : row.pct >= 75 ? (
-                                  <span style={{ fontSize: 11, background: "#d1fae5", color: "#065f46", padding: "3px 10px", borderRadius: 20, fontWeight: 700, border: "1px solid #a7f3d0" }}>
-                                    ✓ Punctual
-                                  </span>
-                                ) : (
-                                  <span style={{ fontSize: 11, background: "#fffbeb", color: "#b45309", padding: "3px 10px", borderRadius: 20, fontWeight: 700, border: "1px solid #fde68a" }}>
-                                    Moderate (≥40%)
-                                  </span>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                                </td>
+                                <td style={{ padding: "12px 18px", color: "#64748b", fontSize: 13, fontWeight: 500, whiteSpace: "nowrap" }}>{row.index}</td>
+                                <td style={{ padding: "12px 18px", fontWeight: 600, color: "#1e293b", whiteSpace: "nowrap" }}>
+                                  {row.attended} / {row.total} sessions
+                                </td>
+                                <td style={{ padding: "12px 18px" }}>{pctBadge(row.pct)}</td>
+                                <td style={{ padding: "12px 18px", whiteSpace: "nowrap" }}>
+                                  {isTruant ? (
+                                    <span style={{ fontSize: 11, background: "#fee2e2", color: "#dc2626", padding: "3px 10px", borderRadius: 20, fontWeight: 700, border: "1px solid #fecaca" }}>
+                                      ⚠ Truant (&lt;40%)
+                                    </span>
+                                  ) : row.pct >= 75 ? (
+                                    <span style={{ fontSize: 11, background: "#d1fae5", color: "#065f46", padding: "3px 10px", borderRadius: 20, fontWeight: 700, border: "1px solid #a7f3d0" }}>
+                                      ✓ Punctual
+                                    </span>
+                                  ) : (
+                                    <span style={{ fontSize: 11, background: "#fffbeb", color: "#b45309", padding: "3px 10px", borderRadius: 20, fontWeight: 700, border: "1px solid #fde68a" }}>
+                                      Moderate (≥40%)
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
                   )}
                 </div>
               );
@@ -3067,16 +3125,26 @@ export default function LecturerDashboard() {
         )}
 
         {/* ══ PROFILE & COURSE REPS PAGE ══ */}
-        {navItem === "profile" && (
-          <main style={{ flex: 1, padding: "28px 32px", overflowY: "auto" }}>
+        {navItem === "profile" && (() => {
+          const activeRepCourse = repCourse || courses[0]?.code || "";
+          const repGroupsForCourse = activeRepCourse
+            ? groups.filter(g => String(g).toUpperCase().startsWith(activeRepCourse.toUpperCase() + " - "))
+            : groups;
+          const visibleRepGroups = repGroupsForCourse.length > 0
+            ? repGroupsForCourse
+            : (activeRepCourse ? [`${activeRepCourse} - Group 1`] : (groups.length > 0 ? groups : ["Group 1"]));
+          const safeRepGroup = visibleRepGroups.includes(repGroup) ? repGroup : visibleRepGroups[0];
+
+          return (
+          <main style={{ flex: 1, padding: isMobile ? "16px 14px" : "28px 32px", overflowY: "auto" }}>
             {/* Lecturer Profile Header */}
-            <div style={{ background: "white", borderRadius: 16, padding: 24, border: "1px solid #e2e8f0", marginBottom: 24, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-                <div style={{ width: 64, height: 64, borderRadius: 20, background: "linear-gradient(135deg, #1e3a5f, #0f172a)", color: "#60a5fa", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, fontWeight: 800 }}>
+            <div style={{ background: "white", borderRadius: 16, padding: isMobile ? 16 : 24, border: "1px solid #e2e8f0", marginBottom: isMobile ? 16 : 24, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 14 : 20, flexWrap: "wrap" }}>
+                <div style={{ width: isMobile ? 52 : 64, height: isMobile ? 52 : 64, borderRadius: isMobile ? 14 : 20, background: "linear-gradient(135deg, #1e3a5f, #0f172a)", color: "#60a5fa", display: "flex", alignItems: "center", justifyContent: "center", fontSize: isMobile ? 20 : 24, fontWeight: 800, flexShrink: 0 }}>
                   {lecturerName ? lecturerName.charAt(0) : "L"}
                 </div>
                 <div>
-                  <h2 style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", margin: 0 }}>{lecturerName}</h2>
+                  <h2 style={{ fontSize: isMobile ? 18 : 22, fontWeight: 800, color: "#0f172a", margin: 0 }}>{lecturerName}</h2>
                   <div style={{ fontSize: 13, color: "#2563eb", fontWeight: 700, marginTop: 4 }}>LECTURER · SMART ATTENDANCE</div>
                   <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>University of Education, Winneba (UEW)</div>
                 </div>
@@ -3084,15 +3152,15 @@ export default function LecturerDashboard() {
             </div>
 
             {/* Appoint & Manage Course Reps Form */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 16 : 24 }}>
               {/* Left Column: Appoint Form */}
-              <div style={{ background: "white", borderRadius: 16, padding: 24, border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+              <div style={{ background: "white", borderRadius: 16, padding: isMobile ? 16 : 24, border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
                 <div style={{ fontWeight: 700, fontSize: 16, color: "#0f172a", marginBottom: 6 }}>👑 Appoint Course Rep for My Class</div>
-                <div style={{ fontSize: 12, color: "#64748b", marginBottom: 16 }}>Assign a student as Course Rep and set their login password</div>
+                <div style={{ fontSize: 12, color: "#64748b", marginBottom: 16 }}>Assign a student as Course Rep for a specific course and group only</div>
 
                 <form onSubmit={handleAppointRep} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   {/* Mode Switcher: Existing Roster Student vs. New Student */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, background: "#f1f5f9", padding: 4, borderRadius: 10 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 8, background: "#f1f5f9", padding: 4, borderRadius: 10 }}>
                     <button
                       type="button"
                       onClick={() => {
@@ -3149,7 +3217,9 @@ export default function LecturerDashboard() {
                               setRepLastName(parts.slice(1).join(" ") || "");
                               setRepIndex(st.index || "");
                               setRepEmail(st.email || (st.index ? `${st.index}@st.uew.edu.gh` : ""));
-                              if (st.group) setRepGroup(st.group);
+                              if (st.group && (!activeRepCourse || String(st.group).toUpperCase().startsWith(activeRepCourse.toUpperCase() + " - "))) {
+                                setRepGroup(st.group);
+                              }
                             }
                           }}
                           style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, background: "white", fontWeight: 600, color: "#0f172a" }}
@@ -3165,7 +3235,7 @@ export default function LecturerDashboard() {
                     </div>
                   )}
 
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10 }}>
                     <div>
                       <label style={{ fontSize: 11, fontWeight: 700, color: "#64748b", display: "block", marginBottom: 4 }}>FIRST NAME *</label>
                       <input
@@ -3173,7 +3243,7 @@ export default function LecturerDashboard() {
                         placeholder="e.g. Alberta"
                         value={repFirstName}
                         onChange={e => setRepFirstName(e.target.value)}
-                        style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13 }}
+                        style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, boxSizing: "border-box" }}
                         required
                       />
                     </div>
@@ -3184,13 +3254,13 @@ export default function LecturerDashboard() {
                         placeholder="e.g. Klokpa"
                         value={repLastName}
                         onChange={e => setRepLastName(e.target.value)}
-                        style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13 }}
+                        style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, boxSizing: "border-box" }}
                         required
                       />
                     </div>
                   </div>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10 }}>
                     <div>
                       <label style={{ fontSize: 11, fontWeight: 700, color: "#64748b", display: "block", marginBottom: 4 }}>EMAIL ADDRESS *</label>
                       <input
@@ -3198,7 +3268,7 @@ export default function LecturerDashboard() {
                         placeholder="rep@st.uew.edu.gh"
                         value={repEmail}
                         onChange={e => setRepEmail(e.target.value)}
-                        style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13 }}
+                        style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, boxSizing: "border-box" }}
                         required
                       />
                     </div>
@@ -3209,17 +3279,22 @@ export default function LecturerDashboard() {
                         placeholder="e.g. 5261000018"
                         value={repIndex}
                         onChange={e => setRepIndex(e.target.value)}
-                        style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13 }}
+                        style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, boxSizing: "border-box" }}
                       />
                     </div>
                   </div>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10 }}>
                     <div>
                       <label style={{ fontSize: 11, fontWeight: 700, color: "#64748b", display: "block", marginBottom: 4 }}>ASSIGN COURSE</label>
                       <select
-                        value={repCourse}
-                        onChange={e => setRepCourse(e.target.value)}
+                        value={activeRepCourse}
+                        onChange={e => {
+                          const nextC = e.target.value;
+                          setRepCourse(nextC);
+                          const cGroups = groups.filter(g => String(g).toUpperCase().startsWith(nextC.toUpperCase() + " - "));
+                          setRepGroup(cGroups[0] || (nextC ? `${nextC} - Group 1` : "Group 1"));
+                        }}
                         style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, background: "white" }}
                       >
                         {courses.map(c => <option key={c.code} value={c.code}>{c.code} — {c.name}</option>)}
@@ -3228,13 +3303,16 @@ export default function LecturerDashboard() {
                     <div>
                       <label style={{ fontSize: 11, fontWeight: 700, color: "#64748b", display: "block", marginBottom: 4 }}>ASSIGN GROUP</label>
                       <select
-                        value={repGroup}
+                        value={safeRepGroup}
                         onChange={e => setRepGroup(e.target.value)}
                         style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, background: "white" }}
                       >
-                        {groups.map(g => <option key={g} value={g}>{g}</option>)}
+                        {visibleRepGroups.map(g => <option key={g} value={g}>{g}</option>)}
                       </select>
                     </div>
+                  </div>
+                  <div style={{ fontSize: 11, color: "#0369a1", background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 8, padding: "7px 10px" }}>
+                    Rep access will be strictly locked to <strong>{activeRepCourse || "selected course"}</strong> · <strong>{safeRepGroup}</strong> only.
                   </div>
 
                   <div>
@@ -3283,16 +3361,16 @@ export default function LecturerDashboard() {
                   <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 420, overflowY: "auto" }}>
                     {courseReps.map(r => (
                       <div key={r.id} style={{ background: "#f8fafc", borderRadius: 12, padding: 14, border: "1px solid #e2e8f0" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                          <div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 8 }}>
+                          <div style={{ minWidth: 0 }}>
                             <div style={{ fontWeight: 700, fontSize: 14, color: "#0f172a" }}>{r.name}</div>
-                            <div style={{ fontSize: 12, color: "#2563eb", fontWeight: 600 }}>{r.email}</div>
+                            <div style={{ fontSize: 12, color: "#2563eb", fontWeight: 600, wordBreak: "break-all" }}>{r.email}</div>
                           </div>
-                          <span style={{ fontSize: 10, background: "#dbeafe", color: "#1e40af", padding: "2px 8px", borderRadius: 12, fontWeight: 700 }}>
+                          <span style={{ fontSize: 10, background: "#dbeafe", color: "#1e40af", padding: "2px 8px", borderRadius: 12, fontWeight: 700, whiteSpace: "nowrap" }}>
                             {r.course_code} · {r.group_name}
                           </span>
                         </div>
-                        <div style={{ fontSize: 11, color: "#64748b", marginTop: 8, display: "flex", justifyContent: "space-between" }}>
+                        <div style={{ fontSize: 11, color: "#64748b", marginTop: 8, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 6 }}>
                           <span>Index: <strong>{r.index_number}</strong></span>
                           <span>Appointed By: <strong>{r.created_by}</strong></span>
                         </div>
@@ -3303,7 +3381,8 @@ export default function LecturerDashboard() {
               </div>
             </div>
           </main>
-        )}
+          );
+        })()}
       </div>
 
       {/* ══ MANAGE COURSES MODAL ══ */}
@@ -3482,7 +3561,7 @@ export default function LecturerDashboard() {
               </button>
             </div>
             <form onSubmit={handleAddSingleStudent} style={{ padding: 22, display: "flex", flexDirection: "column", gap: 14 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
                 <div>
                   <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#475569", marginBottom: 4 }}>FIRST NAME</label>
                   <input

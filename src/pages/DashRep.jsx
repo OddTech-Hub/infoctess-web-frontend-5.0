@@ -310,12 +310,24 @@ export default function CourseRepDashboard() {
 
 
   const [tab, setTab]             = useState("dashboard");
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isMobile, setIsMobile]   = useState(() => typeof window !== "undefined" ? window.innerWidth <= 768 : false);
+  const [sidebarOpen, setSidebarOpen] = useState(() => typeof window !== "undefined" ? window.innerWidth > 768 : true);
   const [sessions, setSessions]   = useState(INITIAL_SESSIONS);
   const [courses, setCourses]     = useState([]);
+  const [assignedGroups, setAssignedGroups] = useState([]);
   const [selectedCourse, setSelectedCourse] = useState("");
   const [timeWindow, setTimeWindow] = useState("10");
   const [loading, setLoading]     = useState(true);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    const onChange = (e) => {
+      setIsMobile(e.matches);
+      setSidebarOpen(!e.matches);
+    };
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
 
   // Rep user details
   const [repName, setRepName]     = useState("Course Representative");
@@ -411,12 +423,21 @@ export default function CourseRepDashboard() {
 
   const hasLoadedStudentsRef = useRef(false);
 
+  const matchedAssignedGroup = assignedGroups.find(
+    g => !selectedCourse || String(g.course?.code || "").toUpperCase() === String(selectedCourse).toUpperCase()
+  ) || assignedGroups[0] || null;
+
   const fetchCheckedInStudents = useCallback(async (silent = false) => {
     if (!silent && !hasLoadedStudentsRef.current) {
       setLoadingStudents(true);
     }
     try {
-      const res = await request("/api/reports/breakdown/");
+      const params = new URLSearchParams();
+      if (selectedCourse) params.set("course_code", selectedCourse);
+      if (matchedAssignedGroup?.level?.code) params.set("level_code", matchedAssignedGroup.level.code);
+      if (matchedAssignedGroup?.name) params.set("group_name", matchedAssignedGroup.display_name || matchedAssignedGroup.name);
+      const qs = params.toString();
+      const res = await request(`/api/reports/breakdown/${qs ? `?${qs}` : ""}`);
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
         const mapped = json.data.map(s => ({
@@ -435,7 +456,7 @@ export default function CourseRepDashboard() {
     } finally {
       setLoadingStudents(false);
     }
-  }, []);
+  }, [selectedCourse, matchedAssignedGroup]);
 
   const refreshSessions = useCallback(() => {
     fetchSessions();
@@ -462,7 +483,10 @@ export default function CourseRepDashboard() {
     async function init() {
       setLoading(true);
       try {
-        const res = await request("/api/courses/");
+        const [res, grpRes] = await Promise.all([
+          request("/api/courses/"),
+          request("/api/groups/").catch(() => null)
+        ]);
         if (res.status === 401) {
           sessionStorage.clear();
           navigate("/login", { replace: true });
@@ -472,6 +496,12 @@ export default function CourseRepDashboard() {
         if (json.success && Array.isArray(json.data) && json.data.length > 0) {
           setCourses(json.data);
           setSelectedCourse(json.data[0].code);
+        }
+        if (grpRes && grpRes.ok) {
+          const grpJson = await grpRes.json();
+          if (grpJson.success && Array.isArray(grpJson.data)) {
+            setAssignedGroups(grpJson.data);
+          }
         }
         await fetchSessions();
       } catch (err) {
@@ -540,13 +570,17 @@ export default function CourseRepDashboard() {
   const openSession = async () => {
     if (!selectedCourse) { alert("No course assigned. Contact your lecturer or administrator."); return; }
     try {
+      const payload = {
+        course_id: selectedCourse,
+        time_window: parseInt(timeWindow),
+        allowed_radius: parseInt(allowedRadius)
+      };
+      if (matchedAssignedGroup?.id) {
+        payload.group_id = matchedAssignedGroup.id;
+      }
       const res = await request("/api/sessions/create/", {
         method: "POST",
-        body: JSON.stringify({
-          course_id: selectedCourse,
-          time_window: parseInt(timeWindow),
-          allowed_radius: parseInt(allowedRadius)
-        })
+        body: JSON.stringify(payload)
       });
       const json = await res.json();
       if (json.success) {
@@ -581,15 +615,29 @@ export default function CourseRepDashboard() {
   const totalCheckins = sessions.reduce((acc, s) => acc + (s.checkins || 0), 0);
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f8fafc", fontFamily: "'Inter','Segoe UI',sans-serif", display: "flex" }}>
+    <div style={{ minHeight: "100vh", background: "#f8fafc", fontFamily: "'Inter','Segoe UI',sans-serif", display: "flex", overflowX: "hidden" }}>
+      {/* Mobile Sidebar Backdrop */}
+      {isMobile && sidebarOpen && (
+        <div
+          onClick={() => setSidebarOpen(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.55)", zIndex: 80 }}
+        />
+      )}
+
       {/* ── SIDEBAR ── */}
       <aside style={{
-        width: sidebarOpen ? 260 : 72, background: "#0f172a", color: "white",
-        transition: "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)", flexShrink: 0,
-        display: "flex", flexDirection: "column", zIndex: 50
+        width: isMobile ? 260 : (sidebarOpen ? 260 : 72),
+        background: "#0f172a", color: "white",
+        transition: isMobile ? "left 0.28s ease" : "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+        flexShrink: 0,
+        display: "flex", flexDirection: "column",
+        ...(isMobile ? {
+          position: "fixed", top: 0, bottom: 0, left: sidebarOpen ? 0 : -280, zIndex: 90,
+          boxShadow: sidebarOpen ? "6px 0 30px rgba(0,0,0,0.35)" : "none"
+        } : { zIndex: 50 })
       }}>
         <div style={{ padding: "20px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #1e293b" }}>
-          {sidebarOpen && (
+          {(sidebarOpen || isMobile) && (
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{ width: 34, height: 34, borderRadius: 8, background: "linear-gradient(135deg,#2563eb,#3b82f6)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <QrCode size={18} color="white" />
@@ -615,7 +663,7 @@ export default function CourseRepDashboard() {
             const Icon = item.icon;
             const active = tab === item.id;
             return (
-              <button key={item.id} onClick={() => setTab(item.id)} style={{
+              <button key={item.id} onClick={() => { setTab(item.id); if (isMobile) setSidebarOpen(false); }} style={{
                 display: "flex", alignItems: "center", gap: 12, width: "100%",
                 padding: "10px 14px", borderRadius: 8, border: "none",
                 background: active ? "linear-gradient(135deg,#1d4ed8,#2563eb)" : "transparent",
@@ -623,14 +671,14 @@ export default function CourseRepDashboard() {
                 cursor: "pointer", textAlign: "left"
               }}>
                 <Icon size={18} />
-                {sidebarOpen && <span>{item.label}</span>}
+                {(sidebarOpen || isMobile) && <span>{item.label}</span>}
               </button>
             );
           })}
         </nav>
 
         <div style={{ padding: 16, borderTop: "1px solid #1e293b" }}>
-          {sidebarOpen ? (
+          {(sidebarOpen || isMobile) ? (
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <Avatar initials={getInitials(repName)} size={36} />
               <div style={{ flex: 1, overflow: "hidden" }}>
@@ -650,24 +698,53 @@ export default function CourseRepDashboard() {
       </aside>
 
       {/* ── MAIN CONTENT ── */}
-      <main style={{ flex: 1, overflowY: "auto", padding: 32 }}>
-        <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28 }}>
-          <div>
-            <h1 style={{ fontSize: 24, fontWeight: 800, color: "#0f172a", margin: "0 0 4px" }}>Course Representative Portal</h1>
-            <p style={{ fontSize: 13, color: "#64748b", margin: 0 }}>Create and manage live attendance check-in sessions for your group.</p>
+      <main style={{ flex: 1, minWidth: 0, overflowY: "auto", padding: isMobile ? "16px 14px" : 32 }}>
+        <header style={{ display: "flex", alignItems: isMobile ? "flex-start" : "center", justifyContent: "space-between", flexWrap: "wrap", gap: 14, marginBottom: isMobile ? 20 : 28 }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 12, minWidth: 0 }}>
+            {isMobile && (
+              <button
+                onClick={() => setSidebarOpen(true)}
+                aria-label="Open menu"
+                style={{
+                  background: "white", border: "1px solid #e2e8f0", borderRadius: 10,
+                  padding: "8px 10px", cursor: "pointer", color: "#0f172a",
+                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2
+                }}
+              >
+                <PanelLeftOpen size={20} />
+              </button>
+            )}
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+                <h1 style={{ fontSize: isMobile ? 19 : 24, fontWeight: 800, color: "#0f172a", margin: 0 }}>Course Representative Portal</h1>
+                {selectedCourse && (
+                  <span style={{
+                    fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20,
+                    background: "#eff6ff", color: "#1d4ed8", border: "1px solid #bfdbfe"
+                  }}>
+                    {matchedAssignedGroup?.display_name || `${selectedCourse}${matchedAssignedGroup?.name ? ` · ${matchedAssignedGroup.name}` : ""}`}
+                  </span>
+                )}
+              </div>
+              <p style={{ fontSize: isMobile ? 12 : 13, color: "#64748b", margin: 0 }}>Create and manage live attendance check-in sessions for your assigned course &amp; group.</p>
+            </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", width: isMobile ? "100%" : "auto" }}>
             <button onClick={() => setShowConfigModal(true)} style={{
-              display: "flex", alignItems: "center", gap: 6, padding: "10px 16px",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+              padding: isMobile ? "9px 12px" : "10px 16px",
+              flex: isMobile ? "1 1 auto" : "none",
               borderRadius: 10, background: "#f1f5f9", color: "#334155",
-              border: "1px solid #cbd5e1", fontWeight: 700, fontSize: 13, cursor: "pointer"
+              border: "1px solid #cbd5e1", fontWeight: 700, fontSize: isMobile ? 12 : 13, cursor: "pointer"
             }}>
               ⚙️ Session Settings ({timeWindow}m • {allowedRadius}m)
             </button>
             <button onClick={openSession} disabled={courses.length === 0} style={{
-              display: "flex", alignItems: "center", gap: 8, padding: "10px 20px",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              padding: isMobile ? "9px 14px" : "10px 20px",
+              flex: isMobile ? "1 1 auto" : "none",
               borderRadius: 10, background: courses.length === 0 ? "#94a3b8" : "linear-gradient(135deg,#1d4ed8,#2563eb)",
-              color: "white", border: "none", fontWeight: 700, fontSize: 13, cursor: courses.length === 0 ? "not-allowed" : "pointer",
+              color: "white", border: "none", fontWeight: 700, fontSize: isMobile ? 12 : 13, cursor: courses.length === 0 ? "not-allowed" : "pointer",
               boxShadow: courses.length === 0 ? "none" : "0 4px 12px rgba(37,99,235,0.25)"
             }}>
               <Plus size={16} /> Open QR Session
@@ -676,7 +753,7 @@ export default function CourseRepDashboard() {
         </header>
 
         {/* SUMMARY CARDS */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, marginBottom: 28 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(auto-fit, minmax(150px, 1fr))" : "repeat(auto-fit, minmax(220px, 1fr))", gap: isMobile ? 12 : 16, marginBottom: isMobile ? 20 : 28 }}>
           {[
             { label: "Total Sessions", val: sessions.length, icon: QrCode, color: "#3b82f6", bg: "#eff6ff" },
             { label: "Total Check-ins", val: totalCheckins, icon: CheckCircle, color: "#10b981", bg: "#ecfdf5" },
@@ -711,52 +788,54 @@ export default function CourseRepDashboard() {
         )}
 
         {/* TAB CONTENT */}
-        {tab === "dashboard" && (
-          <div style={{ background: "white", borderRadius: 16, border: "1px solid #e2e8f0", padding: 24 }}>
+        {(tab === "dashboard" || tab === "sessions") && (
+          <div style={{ background: "white", borderRadius: 16, border: "1px solid #e2e8f0", padding: isMobile ? 16 : 24 }}>
             <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 16px", color: "#0f172a" }}>Recent Attendance Sessions</h3>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead>
-                <tr style={{ background: "#f8fafc", textAlign: "left" }}>
-                  {["Session ID", "Course", "Date", "Check-ins", "Status"].map(h => (
-                    <th key={h} style={{ padding: "12px 16px", color: "#64748b", fontWeight: 600, borderBottom: "1px solid #e2e8f0" }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {sessions.map(s => (
-                  <tr key={s.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                    <td style={{ padding: "12px 16px", fontWeight: 700, color: "#1e293b" }}>{s.id}</td>
-                    <td style={{ padding: "12px 16px" }}>{s.course} — {s.courseName}</td>
-                    <td style={{ padding: "12px 16px", color: "#64748b" }}>{s.date}</td>
-                    <td style={{ padding: "12px 16px", fontWeight: 700 }}>{s.checkins}</td>
-                    <td style={{ padding: "12px 16px" }}>
-                      <span style={{
-                        padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700,
-                        background: s.status === "active" ? "#dcfce7" : "#f1f5f9",
-                        color: s.status === "active" ? "#15803d" : "#64748b"
-                      }}>
-                        {s.status.toUpperCase()}
-                      </span>
-                    </td>
+            <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+              <table style={{ width: "100%", minWidth: 520, borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: "#f8fafc", textAlign: "left" }}>
+                    {["Session ID", "Course", "Date", "Check-ins", "Status"].map(h => (
+                      <th key={h} style={{ padding: "12px 16px", color: "#64748b", fontWeight: 600, borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap" }}>{h}</th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {sessions.map(s => (
+                    <tr key={s.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                      <td style={{ padding: "12px 16px", fontWeight: 700, color: "#1e293b", whiteSpace: "nowrap" }}>{s.id}</td>
+                      <td style={{ padding: "12px 16px" }}>{s.course} — {s.courseName}</td>
+                      <td style={{ padding: "12px 16px", color: "#64748b", whiteSpace: "nowrap" }}>{s.date}</td>
+                      <td style={{ padding: "12px 16px", fontWeight: 700 }}>{s.checkins}</td>
+                      <td style={{ padding: "12px 16px" }}>
+                        <span style={{
+                          padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700,
+                          background: s.status === "active" ? "#dcfce7" : "#f1f5f9",
+                          color: s.status === "active" ? "#15803d" : "#64748b"
+                        }}>
+                          {s.status.toUpperCase()}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
         {tab === "projection" && (
-        <div style={{ background: "white", borderRadius: 20, padding: 32, border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, borderBottom: "1px solid #f1f5f9", paddingBottom: 16 }}>
+        <div style={{ background: "white", borderRadius: 20, padding: isMobile ? 18 : 32, border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 24, borderBottom: "1px solid #f1f5f9", paddingBottom: 16 }}>
             <div>
-              <h2 style={{ fontSize: 20, fontWeight: 800, color: "#0f172a", margin: 0 }}>Classroom Projector Mode</h2>
+              <h2 style={{ fontSize: isMobile ? 17 : 20, fontWeight: 800, color: "#0f172a", margin: 0 }}>Classroom Projector Mode</h2>
               <p style={{ fontSize: 13, color: "#64748b", margin: "4px 0 0" }}>Project high-contrast QR code and unguessable 90s passcode to students</p>
             </div>
             {activeSession && (
               <button
                 onClick={() => setShowProjector(true)}
                 style={{
-                  padding: "10px 20px", borderRadius: 10, background: "linear-gradient(135deg, #1E5A87, #0A3A4F)",
+                  padding: "10px 18px", borderRadius: 10, background: "linear-gradient(135deg, #1E5A87, #0A3A4F)",
                   color: "white", border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer",
                   display: "flex", alignItems: "center", gap: 8
                 }}
@@ -767,19 +846,19 @@ export default function CourseRepDashboard() {
           </div>
 
           {activeSession ? (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "20px 0" }}>
-              <div style={{ fontSize: 16, fontWeight: 800, color: "#1E5A87", marginBottom: 6 }}>{activeSession.course} — {activeSession.courseName}</div>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: isMobile ? "10px 0" : "20px 0" }}>
+              <div style={{ fontSize: isMobile ? 14 : 16, fontWeight: 800, color: "#1E5A87", marginBottom: 6, textAlign: "center" }}>{activeSession.course} — {activeSession.courseName}</div>
               <div style={{ fontSize: 13, color: "#64748b", marginBottom: 20 }}>Base Session ID: <strong>{activeSession.id}</strong></div>
-              <div style={{ padding: 20, background: "#f8fafc", borderRadius: 20, border: "2px solid #e2e8f0", marginBottom: 16 }}>
-                <QRVisual code={rotatingToken ? `ATT-${rotatingToken}` : activeSession.id} size={280} />
+              <div style={{ padding: isMobile ? 14 : 20, background: "#f8fafc", borderRadius: 20, border: "2px solid #e2e8f0", marginBottom: 16, maxWidth: "100%" }}>
+                <QRVisual code={rotatingToken ? `ATT-${rotatingToken}` : activeSession.id} size={isMobile ? 200 : 280} />
               </div>
-              <div style={{ fontSize: 36, fontWeight: 900, letterSpacing: 4, color: "#1E5A87", fontFamily: "monospace", marginBottom: 8 }}>
+              <div style={{ fontSize: isMobile ? 26 : 36, fontWeight: 900, letterSpacing: isMobile ? 2 : 4, color: "#1E5A87", fontFamily: "monospace", marginBottom: 8, textAlign: "center" }}>
                 {rotatingToken ? `ATT-${rotatingToken}` : (activeSession.id || "ATT-0000")}
               </div>
               <div style={{ fontSize: 12, color: "#64748b" }}>Refreshes in {rotatingSecs} seconds</div>
             </div>
           ) : (
-            <div style={{ textAlign: "center", padding: "60px 20px", color: "#94a3b8" }}>
+            <div style={{ textAlign: "center", padding: isMobile ? "40px 16px" : "60px 20px", color: "#94a3b8" }}>
               <QrCode size={48} style={{ margin: "0 auto 12px", color: "#cbd5e1" }} />
               <div style={{ fontSize: 16, fontWeight: 700, color: "#475569" }}>No Active Session Running</div>
               <div style={{ fontSize: 13, marginTop: 4 }}>Go to the Dashboard and click <strong>Session Settings</strong> to launch an attendance session.</div>
@@ -789,33 +868,35 @@ export default function CourseRepDashboard() {
       )}
 
       {tab === "students" && (
-          <div style={{ background: "white", borderRadius: 16, border: "1px solid #e2e8f0", padding: 24 }}>
+          <div style={{ background: "white", borderRadius: 16, border: "1px solid #e2e8f0", padding: isMobile ? 16 : 24 }}>
             <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 16px", color: "#0f172a" }}>Student Attendance Roster</h3>
             {loadingStudents ? (
               <div style={{ padding: 40, textAlign: "center", color: "#94a3b8" }}>Loading student records...</div>
             ) : (
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                <thead>
-                  <tr style={{ background: "#f8fafc", textAlign: "left" }}>
-                    {["Student Name", "Index Number", "Attended Sessions", "Attendance Status"].map(h => (
-                      <th key={h} style={{ padding: "12px 16px", color: "#64748b", fontWeight: 600, borderBottom: "1px solid #e2e8f0" }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {checkedInStudents.map((st, i) => (
-                    <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                      <td style={{ padding: "12px 16px", fontWeight: 600, color: "#0f172a", display: "flex", alignItems: "center", gap: 10 }}>
-                        <Avatar initials={st.avatar} idx={i} size={30} />
-                        {st.name}
-                      </td>
-                      <td style={{ padding: "12px 16px", color: "#64748b" }}>{st.index}</td>
-                      <td style={{ padding: "12px 16px", fontWeight: 700 }}>{st.sessions}</td>
-                      <td style={{ padding: "12px 16px", color: "#10b981", fontWeight: 600 }}>{st.time}</td>
+              <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+                <table style={{ width: "100%", minWidth: 520, borderCollapse: "collapse", fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ background: "#f8fafc", textAlign: "left" }}>
+                      {["Student Name", "Index Number", "Attended Sessions", "Attendance Status"].map(h => (
+                        <th key={h} style={{ padding: "12px 16px", color: "#64748b", fontWeight: 600, borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap" }}>{h}</th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {checkedInStudents.map((st, i) => (
+                      <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                        <td style={{ padding: "12px 16px", fontWeight: 600, color: "#0f172a", display: "flex", alignItems: "center", gap: 10, whiteSpace: "nowrap" }}>
+                          <Avatar initials={st.avatar} idx={i} size={30} />
+                          {st.name}
+                        </td>
+                        <td style={{ padding: "12px 16px", color: "#64748b", whiteSpace: "nowrap" }}>{st.index}</td>
+                        <td style={{ padding: "12px 16px", fontWeight: 700 }}>{st.sessions}</td>
+                        <td style={{ padding: "12px 16px", color: "#10b981", fontWeight: 600, whiteSpace: "nowrap" }}>{st.time}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         )}
@@ -943,14 +1024,22 @@ export default function CourseRepDashboard() {
       {showModal && activeSession && (
         <div style={{
           position: "fixed", inset: 0, background: "rgba(15,23,42,0.7)", backdropFilter: "blur(6px)",
-          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20
+          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: isMobile ? 12 : 20
         }}>
           <div style={{
-            background: "white", borderRadius: 24, padding: 32, width: 840, maxWidth: "95%",
-            boxShadow: "0 25px 50px -12px rgba(0,0,0,0.3)", display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 32
+            background: "white", borderRadius: isMobile ? 18 : 24, padding: isMobile ? 18 : 32, width: 840, maxWidth: "100%",
+            maxHeight: "92vh", overflowY: "auto",
+            boxShadow: "0 25px 50px -12px rgba(0,0,0,0.3)",
+            display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1.2fr", gap: isMobile ? 22 : 32
           }}>
             {/* LEFT COLUMN: QR CODE & CONTROLS */}
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlignment: "center", borderRight: "1px solid #f1f5f9", paddingRight: 24 }}>
+            <div style={{
+              display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center",
+              borderRight: isMobile ? "none" : "1px solid #f1f5f9",
+              borderBottom: isMobile ? "1px solid #f1f5f9" : "none",
+              paddingRight: isMobile ? 0 : 24,
+              paddingBottom: isMobile ? 20 : 0
+            }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", marginBottom: 16 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#16a34a", fontWeight: 700, fontSize: 13, background: "#dcfce7", padding: "4px 12px", borderRadius: 20 }}>
                   <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#16a34a", animation: "pulse 1.5s infinite" }} />
@@ -962,8 +1051,8 @@ export default function CourseRepDashboard() {
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 6 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
-                  <div style={{ fontSize: 32, fontWeight: 900, letterSpacing: 3, color: "#1E5A87", fontFamily: "monospace" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, flexWrap: "wrap", justifyContent: "center" }}>
+                  <div style={{ fontSize: isMobile ? 24 : 32, fontWeight: 900, letterSpacing: isMobile ? 2 : 3, color: "#1E5A87", fontFamily: "monospace" }}>
                     {rotatingToken ? `ATT-${rotatingToken}` : (activeSession.id || "ATT-0000")}
                   </div>
                   <span style={{ fontSize: 11, background: "#e0f2fe", color: "#0369a1", padding: "3px 8px", borderRadius: 12, fontWeight: 700 }}>
@@ -986,7 +1075,7 @@ export default function CourseRepDashboard() {
               <div style={{ fontSize: 13, color: "#64748b", marginBottom: 16, fontWeight: 600, textAlign: "center" }}>{activeSession.courseName}</div>
 
               <div style={{ display: "flex", justifyContent: "center", marginBottom: 20, padding: 12, background: "#f8fafc", borderRadius: 16, border: "1px solid #e2e8f0" }}>
-                <QRVisual code={rotatingToken ? `ATT-${rotatingToken}` : activeSession.id} size={200} />
+                <QRVisual code={rotatingToken ? `ATT-${rotatingToken}` : activeSession.id} size={isMobile ? 160 : 200} />
               </div>
 
               {/* PROJECTOR MODE BUTTON */}
