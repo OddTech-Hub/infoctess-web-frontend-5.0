@@ -18,7 +18,7 @@ export const WINDOW_SECONDS = 90;
 function hashSlot(seed, slot) {
   const cleanSeed = (seed || 'INFOCTESS_SECURE_SALT').toUpperCase();
   const reversed = cleanSeed.split('').reverse().join('');
-  const str = `${cleanSeed}:#${(slot * 2654435761) >>> 0}!${reversed}:@${slot ^ 0x5bf03635}`;
+  const str = `${cleanSeed}:#${Math.imul(slot, 2654435761) >>> 0}!${reversed}:@${slot ^ 0x5bf03635}`;
 
   let h = 0x811c9dc5; // FNV-1a offset basis
   for (let i = 0; i < str.length; i++) {
@@ -71,10 +71,6 @@ export function getRotatingSessionState(baseSessionId) {
 export function validateRotatingCode(submittedCode, baseSessionId) {
   if (!submittedCode || !baseSessionId) return false;
   const cleanSub = String(submittedCode).trim().toUpperCase();
-  const cleanBase = String(baseSessionId).trim().toUpperCase();
-
-  // If student directly submitted the base code
-  if (cleanSub === cleanBase) return true;
 
   const now = Math.floor(Date.now() / 1000);
   const currentSlot = Math.floor(now / WINDOW_SECONDS);
@@ -91,7 +87,6 @@ export function validateRotatingCode(submittedCode, baseSessionId) {
     prevCode,
     curDigits,
     prevDigits,
-    cleanBase,
     `ATT ${curDigits}`,
     `ATT ${prevDigits}`
   ];

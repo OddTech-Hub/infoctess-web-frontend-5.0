@@ -1281,10 +1281,11 @@ export default function LecturerDashboard() {
     return () => clearInterval(syncInterval);
   }, [selectedLevel?.id, selectedLevel?.code, silentRefreshLevel]);
 
-  // Alert actions
+  // Alert actions (Lecturer only)
   const handleConfirmAlert = async (student) => {
     try {
-      const res = await request(`/api/alerts/${student.id}/`, {
+      const targetAlertId = student.alertId || student.id;
+      const res = await request(`/api/alerts/${targetAlertId}/`, {
         method: "POST",
         body: JSON.stringify({ action: "confirm" })
       });
@@ -1292,7 +1293,7 @@ export default function LecturerDashboard() {
       if (!json.success) throw new Error(json.message);
 
       setStudents(prev => prev.map(s => s.id === student.id ? { ...s, flagged: false, flagReason: null } : s));
-      setFlaggedList(prev => prev.filter(s => s.id !== student.id));
+      setFlaggedList(prev => prev.filter(s => s.id !== student.id && s.alertId !== targetAlertId));
       setStats(prev => ({ ...prev, flagged: Math.max(0, prev.flagged - 1) }));
 
       setSelectedLevel(prev => {
@@ -1305,6 +1306,8 @@ export default function LecturerDashboard() {
           }
         };
       });
+      if (selectedLevel) silentRefreshLevel(selectedLevel);
+      if (json.message) alert(`✓ ${json.message}`);
     } catch (err) {
       alert("Failed to confirm alert: " + err.message);
     }
@@ -1312,7 +1315,8 @@ export default function LecturerDashboard() {
 
   const handleDeleteRecord = async (student) => {
     try {
-      const res = await request(`/api/alerts/${student.id}/`, {
+      const targetAlertId = student.alertId || student.id;
+      const res = await request(`/api/alerts/${targetAlertId}/`, {
         method: "DELETE"
       });
       const json = await res.json();
@@ -1346,6 +1350,15 @@ export default function LecturerDashboard() {
     }
   };
 
+  const getClassroomCoords = () => new Promise((resolve) => {
+    if (!('geolocation' in navigator)) return resolve(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout: 3500, maximumAge: 60000 }
+    );
+  });
+
   // QR timer
   const openSession = async () => {
     const targetCourse = qrCourse || (level && level.courses && level.courses[0] ? level.courses[0].code : "");
@@ -1355,20 +1368,38 @@ export default function LecturerDashboard() {
     }
 
     try {
+      const coords = await getClassroomCoords();
+      const matchingGroup = (selectedGroup && String(selectedGroup).toUpperCase().startsWith(String(targetCourse).toUpperCase() + " - "))
+        ? selectedGroup
+        : groups.find(g => String(g).toUpperCase().startsWith(String(targetCourse).toUpperCase() + " - "));
+
+      const payload = {
+        course_id: targetCourse,
+        time_window: parseInt(timeWindow) || 10,
+        allowed_radius: parseInt(allowedRadius) || 50
+      };
+      if (matchingGroup) payload.group_id = matchingGroup;
+      if (coords) {
+        payload.latitude = coords.lat;
+        payload.longitude = coords.lng;
+      }
+
       const res = await request("/api/sessions/create/", {
         method: "POST",
-        body: JSON.stringify({
-          course_id: targetCourse,
-          time_window: timeWindow,
-          allowed_radius: parseInt(allowedRadius)
-        })
+        body: JSON.stringify(payload)
       });
-      const json = await res.json();
+      let json = {};
+      try {
+        json = await res.json();
+      } catch (e) {
+        throw new Error(`Server returned HTTP ${res.status}`);
+      }
 
-      if (json.success) {
+      if (res.ok && json.success) {
         setSessionCode(json.data.id);
+        setSessionCourseName(json.data.courseName || "");
         setSessionActive(true);
-        setCountdown(parseInt(timeWindow) * 60);
+        setCountdown((parseInt(timeWindow) || 10) * 60);
         if (selectedLevel) {
           await selectLevel(selectedLevel);
         }
@@ -2252,8 +2283,16 @@ export default function LecturerDashboard() {
                                 <div style={{ fontSize: 11, color: "#94a3b8", fontFamily: "monospace" }}>{st.index || st.index_number || st.email}</div>
                               </div>
                             </div>
-                            <span style={{ fontSize: 11, color: "#4ade80", fontWeight: 700, background: "rgba(34, 197, 94, 0.1)", padding: "2px 8px", borderRadius: 8 }}>
-                              ✓ Checked in
+                            <span style={{
+                              fontSize: 11,
+                              color: st.status === "flagged" ? "#fbbf24" : "#4ade80",
+                              fontWeight: 700,
+                              background: st.status === "flagged" ? "rgba(245, 158, 11, 0.15)" : "rgba(34, 197, 94, 0.1)",
+                              padding: "2px 8px",
+                              borderRadius: 8,
+                              fontFamily: st.receipt_code ? "monospace" : "inherit"
+                            }}>
+                              {st.status === "flagged" ? "⚠ Flagged (Check Alerts)" : `✓ ${st.receipt_code || "Checked in"}`}
                             </span>
                           </div>
                         ))}

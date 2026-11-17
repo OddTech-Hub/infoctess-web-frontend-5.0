@@ -8,7 +8,6 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../api/config';
 import { Html5Qrcode } from 'html5-qrcode';
-import { extractBaseSessionId, validateRotatingCode } from '../utils/sessionCode';
 import SecurityCheckModal from '../components/SecurityCheckModal';
 import AttendanceCardModal from '../components/AttendanceCardModal';
 
@@ -62,7 +61,9 @@ export default function DashStudent() {
   // Security Check & Attendance Card Modals
   const [showSecurityModal, setShowSecurityModal] = useState(false);
   const [securityError, setSecurityError] = useState(null);
+  const [validationStatus, setValidationStatus] = useState('checking');
   const [currentCheckingSession, setCurrentCheckingSession] = useState(null);
+  const latestCheckinResultRef = useRef(null);
 
   const [showAttendanceCard, setShowAttendanceCard] = useState(false);
   const [activeAttendanceCard, setActiveAttendanceCard] = useState(null);
@@ -70,6 +71,7 @@ export default function DashStudent() {
   // Device & Location info
   const [location, setLocation] = useState(null);
   const [locLoading, setLocLoading] = useState(false);
+  const [locError, setLocError] = useState(null);
 
   // Load student profile & data on mount
   useEffect(() => {
@@ -82,6 +84,7 @@ export default function DashStudent() {
     try {
       const u = JSON.parse(userStr);
       setStudent(u);
+      requestLocation();
       loadStudentData(u);
     } catch (err) {
       console.error("Failed to parse student session:", err);
@@ -98,26 +101,37 @@ export default function DashStudent() {
     return () => clearInterval(interval);
   }, [student]);
 
-  // Request GPS location for geofencing
+  // Request live browser GPS location for geofencing (no fake hardcoded fallback)
   const requestLocation = () => {
-    setLocLoading(true);
-    if ('geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-          setLocLoading(false);
-        },
-        (err) => {
-          console.warn("Location permission fallback:", err.message);
-          setLocation({ lat: 5.3523, lng: -0.6310 });
-          setLocLoading(false);
-        },
-        { enableHighAccuracy: true, timeout: 5000 }
-      );
-    } else {
-      setLocation({ lat: 5.3523, lng: -0.6310 });
-      setLocLoading(false);
-    }
+    return new Promise((resolve) => {
+      setLocLoading(true);
+      if ('geolocation' in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const coords = {
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+              accuracy: pos.coords.accuracy || 0
+            };
+            setLocation(coords);
+            setLocError(null);
+            setLocLoading(false);
+            resolve(coords);
+          },
+          (err) => {
+            console.warn("Location access error:", err.message);
+            setLocError(err.message || 'Location permission denied');
+            setLocLoading(false);
+            resolve(null);
+          },
+          { enableHighAccuracy: true, timeout: 5000, maximumAge: 15000 }
+        );
+      } else {
+        setLocError('Geolocation unsupported on this browser');
+        setLocLoading(false);
+        resolve(null);
+      }
+    });
   };
 
   // Helper API fetch with token
@@ -136,7 +150,6 @@ export default function DashStudent() {
   // Load student dashboard data
   const loadStudentData = async (userObj) => {
     try {
-      requestLocation();
       let activeUser = userObj || {};
 
       // 0. Refresh live user profile (level, group, enrolled_groups, lecturer, academic period, email, role)
@@ -183,13 +196,15 @@ export default function DashStudent() {
           liveActiveList = jsonLive.data
             .filter(s => s.status === 'active')
             .map(s => ({
-              id: s.id || s.session_code,
-              session_code: s.id || s.session_code,
+              id: s.id,
               course: {
                 id: s.course,
                 code: s.courseCode || 'ICTE',
                 name: s.courseName || 'Course Attendance'
               },
+              host_name: s.host_name || 'Assigned Lecturer',
+              host_role: s.host_role || 'Lecturer',
+              group_display: s.group_display || s.group_name || '',
               time_window: s.timeWindow || s.time_window || 30,
               status: 'active'
             }));
@@ -209,10 +224,11 @@ export default function DashStudent() {
         setActiveSessions(combinedActive);
         setCourses(jsonSum.data.courses || []);
 
-        // Only show verified sessions where this student actually checked in
+        // Only show sessions where this student actually checked in (Confirmed or Flagged)
         const checkedSessions = allSessions.filter(s => s.checked_in);
         const formattedHistory = checkedSessions.map(s => {
           const stamp = s.checked_in_at || s.opened_at;
+          const isFlagged = String(s.record_status || '').toLowerCase() === 'flagged';
           return {
             id: s.id,
             sessionId: s.id,
@@ -220,12 +236,21 @@ export default function DashStudent() {
             courseName: s.course?.name || s.courseName || 'Class Session',
             date: stamp ? new Date(stamp).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : new Date().toLocaleDateString(),
             time: stamp ? new Date(stamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recorded',
-            status: s.record_status || 'Present',
-            host: s.lecturer_name || activeUser.lecturer_name || 'Assigned Lecturer',
-            refId: s.receipt_code || `REC-${s.id}`
+            status: s.record_status || 'confirmed',
+            flagged: isFlagged,
+            host: s.host_name || s.lecturer_name || activeUser.lecturer_name || 'Assigned Lecturer',
+            receipt_code: isFlagged ? null : (s.receipt_code || null),
+            refId: isFlagged ? null : (s.receipt_code || null),
+            method: s.method || 'session_code'
           };
         });
         setAttendanceHistory(formattedHistory);
+        // Live-update currently open AttendanceCardModal if Lecturer just confirmed a flagged record
+        setActiveAttendanceCard(prev => {
+          if (!prev) return prev;
+          const updated = formattedHistory.find(h => h.sessionId === prev.sessionId || (prev.courseCode && h.courseCode === prev.courseCode && prev.flagged && !h.flagged));
+          return updated ? { ...prev, ...updated } : prev;
+        });
       } else if (liveActiveList.length > 0) {
         setActiveSessions(liveActiveList);
       }
@@ -251,103 +276,96 @@ export default function DashStudent() {
     setScanning(false);
   };
 
-  // Execute student check-in with Rapid Security Layer Animation & Attendance Card
+  // Execute student check-in strictly verified against the backend
   const handleCheckin = async (rawCodeToSubmit) => {
-    const raw = (rawCodeToSubmit || sessionCodeInput).trim().toUpperCase();
+    const raw = (rawCodeToSubmit || sessionCodeInput).trim();
     if (!raw) {
-      setCheckinStatus({ type: 'error', msg: 'Please enter or scan a valid session code.' });
+      setCheckinStatus({ type: 'error', msg: 'Please enter or scan a valid active session code.' });
       return;
     }
 
-    // Stop camera if running
     await stopCameraScanner();
 
-    // Identify matching active session
-    let matchedSession = activeSessions.find(s => {
-      const baseId = s.id || s.session_code;
-      return validateRotatingCode(raw, baseId);
-    });
-
-    const baseCode = matchedSession ? (matchedSession.id || matchedSession.session_code) : extractBaseSessionId(raw);
-    const courseCode = matchedSession?.course?.code || 'ICTE';
-    const courseName = matchedSession?.course?.name || 'Class Session';
-
+    latestCheckinResultRef.current = null;
     setCurrentCheckingSession({
-      baseCode,
-      courseCode,
-      courseName,
-      raw
+      raw,
+      courseCode: activeSessions[0]?.course?.code || 'COURSE',
+      courseName: activeSessions[0]?.course?.name || 'Attendance Session'
     });
 
-    // Close entry modal and open security verification modal
     setShowCheckinModal(false);
     setSecurityError(null);
+    setValidationStatus('checking');
     setShowSecurityModal(true);
 
     try {
+      const freshCoords = location || await requestLocation();
       const indexNum = student?.index_number || student?.username;
       const { deviceId, deviceName } = getDeviceInfo();
 
       const res = await requestApi('/api/checkin/', {
         method: 'POST',
         body: JSON.stringify({
-          session_code: baseCode,
+          session_code: raw,
           index_number: indexNum,
           method: scanMethod === 'camera' ? 'qr_code' : 'session_code',
           device_id: deviceId,
           device_name: deviceName || (navigator.userAgent.includes('Mobile') ? 'Mobile Phone' : 'Web Device'),
-          lat: location?.lat || 5.3523,
-          lng: location?.lng || -0.6310
+          lat: freshCoords?.lat ?? null,
+          lng: freshCoords?.lng ?? null,
+          accuracy: freshCoords?.accuracy ?? 0
         })
       });
 
-      const json = await res.json();
+      let json = {};
+      try {
+        json = await res.json();
+      } catch (parseErr) {
+        json = { success: false, message: `Server returned status ${res.status}` };
+      }
 
-      if (json.success) {
-        // Backend accepted check-in! Security modal animation will finish and trigger onSuccessComplete
-        if (currentCheckingSession && json.data) {
-          currentCheckingSession.refId = json.data.ref_id || json.data.receipt_code;
-        }
+      if (res.ok && json.success && json.data) {
+        latestCheckinResultRef.current = { ...json.data, message: json.message, flagged: Boolean(json.flagged || json.data.flagged) };
         setSecurityError(null);
+        setValidationStatus((json.flagged || json.data.flagged) ? 'flagged' : 'passed');
         if (student) loadStudentData(student);
       } else {
-        // Verification failed (e.g. Geofence out of bounds, expired token, or proxy)
-        const msg = json.message || 'Check-in verification failed. Please try again or approach the lecturer.';
+        const msg = json.message || 'Invalid or expired session code. Verification failed.';
         setSecurityError(msg);
+        setValidationStatus('error');
       }
     } catch (err) {
       setSecurityError('Connection error: Could not reach backend server to verify attendance.');
+      setValidationStatus('error');
     }
   };
 
-  // Called when all 3 security layers pass successfully
+  // Called ONLY after backend confirms check-in (either confirmed or flagged)
   const handleSecuritySuccess = () => {
     setShowSecurityModal(false);
+    const resData = latestCheckinResultRef.current;
+    if (!resData) return;
 
-    // Prepare Attendance Card
+    const isFlagged = Boolean(resData.flagged || String(resData.status || '').toLowerCase() === 'flagged');
     const now = new Date();
     const card = {
-      sessionId: currentCheckingSession?.baseCode || 'ATT-0000',
-      courseCode: currentCheckingSession?.courseCode || 'ICTE',
-      courseName: currentCheckingSession?.courseName || 'Class Attendance',
-      host: 'Course Lecturer / Rep',
+      sessionId: resData.session_code || currentCheckingSession?.baseCode || 'SESSION',
+      courseCode: resData.courseCode || 'ICTE',
+      courseName: resData.courseName || 'Class Attendance',
+      host: resData.host || 'Course Lecturer',
       date: now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' }),
-      time: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      time: resData.time || now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
       method: scanMethod === 'camera' ? 'qr_code' : 'session_code',
-      refId: currentCheckingSession?.refId || `ATT-${currentCheckingSession?.baseCode || '001'}`
+      status: isFlagged ? 'flagged' : 'confirmed',
+      flagged: isFlagged,
+      receipt_code: isFlagged ? null : (resData.receipt_code || resData.ref_id || null),
+      refId: isFlagged ? null : (resData.ref_id || resData.receipt_code || null),
+      warningMessage: isFlagged ? resData.message : null
     };
 
+    setSessionCodeInput('');
     setActiveAttendanceCard(card);
     setShowAttendanceCard(true);
-
-    // Save to local storage for offline evidence
-    try {
-      const savedCards = JSON.parse(localStorage.getItem('student_attendance_cards') || '[]');
-      savedCards.unshift(card);
-      localStorage.setItem('student_attendance_cards', JSON.stringify(savedCards.slice(0, 30)));
-    } catch (e) {
-      console.warn("Could not save card to localStorage:", e);
-    }
   };
 
   // Real device camera scanner using Html5Qrcode
@@ -583,8 +601,10 @@ export default function DashStudent() {
                           <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a', marginTop: 2 }}>
                             {sess.course.name}
                           </div>
-                          <div style={{ fontSize: 12, color: '#64748b', marginTop: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <Clock size={13} /> Allowed Duration: {sess.time_window} mins · Session Code: <strong>{sess.id}</strong>
+                          <div style={{ fontSize: 12, color: '#64748b', marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            <Clock size={13} /> Window: {sess.time_window} mins
+                            {sess.host_name ? ` · Opened by ${sess.host_name}` : ''}
+                            {sess.group_display ? ` · ${sess.group_display}` : ''}
                           </div>
                         </div>
                       </div>
@@ -627,12 +647,14 @@ export default function DashStudent() {
             {/* SECURITY & DEVICE STATUS TILES */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
               <div style={{ background: 'white', borderRadius: 16, padding: '16px 18px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 40, height: 40, borderRadius: 10, background: '#dcfce7', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 10, background: location ? '#dcfce7' : '#fef3c7', color: location ? '#16a34a' : '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <MapPin size={20} />
                 </div>
                 <div>
                   <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>Geofence GPS Proximity</div>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: '#166534', marginTop: 2 }}>Classroom GPS Ready</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: location ? '#166534' : '#92400e', marginTop: 2 }}>
+                    {locLoading ? 'Locking GPS...' : (location ? 'Classroom GPS Locked' : (locError ? 'Enable Location Access' : 'GPS Ready'))}
+                  </div>
                 </div>
               </div>
 
@@ -869,14 +891,23 @@ export default function DashStudent() {
                             {item.courseCode} — {item.courseName}
                           </div>
                           <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
-                            {item.date} at {item.time} · Session <strong>{item.sessionId || item.id}</strong>
+                            {item.date} at {item.time} · Opened by <strong>{item.host}</strong>
+                            {!item.flagged && (item.receipt_code || item.refId) ? ` · Code: ` : ''}
+                            {!item.flagged && (item.receipt_code || item.refId) && <strong style={{ color: '#15803d', fontFamily: 'monospace' }}>{item.receipt_code || item.refId}</strong>}
                           </div>
                         </div>
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span style={{ fontSize: 11, background: '#dcfce7', color: '#166534', padding: '3px 10px', borderRadius: 20, fontWeight: 800 }}>
-                          Verified Present
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                        <span style={{
+                          fontSize: 11,
+                          background: item.flagged ? '#fef3c7' : '#dcfce7',
+                          color: item.flagged ? '#92400e' : '#166534',
+                          padding: '3px 10px',
+                          borderRadius: 20,
+                          fontWeight: 800
+                        }}>
+                          {item.flagged ? 'Flagged · Pending Lecturer' : (item.receipt_code || 'Verified Present')}
                         </span>
                         <button
                           style={{
@@ -1050,6 +1081,7 @@ export default function DashStudent() {
         sessionData={currentCheckingSession}
         student={student}
         validationError={securityError}
+        validationStatus={validationStatus}
       />
 
       {/* ── OFFICIAL DIGITAL ATTENDANCE CARD MODAL ── */}

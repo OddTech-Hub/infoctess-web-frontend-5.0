@@ -567,23 +567,42 @@ export default function CourseRepDashboard() {
     fetchSessions();
   };
 
+  const getClassroomCoords = () => new Promise((resolve) => {
+    if (!('geolocation' in navigator)) return resolve(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout: 3500, maximumAge: 60000 }
+    );
+  });
+
   const openSession = async () => {
     if (!selectedCourse) { alert("No course assigned. Contact your lecturer or administrator."); return; }
     try {
+      const coords = await getClassroomCoords();
       const payload = {
         course_id: selectedCourse,
-        time_window: parseInt(timeWindow),
-        allowed_radius: parseInt(allowedRadius)
+        time_window: parseInt(timeWindow) || 10,
+        allowed_radius: parseInt(allowedRadius) || 50
       };
       if (matchedAssignedGroup?.id) {
         payload.group_id = matchedAssignedGroup.id;
+      }
+      if (coords) {
+        payload.latitude = coords.lat;
+        payload.longitude = coords.lng;
       }
       const res = await request("/api/sessions/create/", {
         method: "POST",
         body: JSON.stringify(payload)
       });
-      const json = await res.json();
-      if (json.success) {
+      let json = {};
+      try {
+        json = await res.json();
+      } catch (parseErr) {
+        throw new Error(`Server returned HTTP ${res.status}`);
+      }
+      if (res.ok && json.success) {
         setActiveSession({
           id: json.data.id,
           course: selectedCourse,
@@ -1151,8 +1170,13 @@ export default function CourseRepDashboard() {
                           </div>
                         </div>
                         <div style={{ textAlign: "right" }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: "#16a34a", background: "#dcfce7", padding: "2px 8px", borderRadius: 12, display: "inline-block" }}>
-                            {st.time || "Just now"}
+                          <div style={{
+                            fontSize: 11, fontWeight: 700,
+                            color: st.status === "flagged" ? "#92400e" : "#16a34a",
+                            background: st.status === "flagged" ? "#fef3c7" : "#dcfce7",
+                            padding: "2px 8px", borderRadius: 12, display: "inline-block"
+                          }}>
+                            {st.status === "flagged" ? "⚠ Flagged (Contact Lecturer)" : (st.receipt_code || st.time || "Confirmed")}
                           </div>
                           <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2 }}>{st.method || "Session Code"}</div>
                         </div>

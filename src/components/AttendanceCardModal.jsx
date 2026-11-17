@@ -12,11 +12,12 @@ export default function AttendanceCardModal({
 
   const courseName = cardData.courseName || cardData.course?.name || 'Class Attendance';
   const courseCode = cardData.courseCode || cardData.course?.code || 'ICTE';
-  const openedBy = cardData.openedBy || cardData.host || 'Course Lecturer / Rep';
+  const openedBy = cardData.openedBy || cardData.host || 'Course Lecturer';
   const dateFormatted = cardData.date || new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' });
   const timeFormatted = cardData.time || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  const method = cardData.method === 'qr_code' ? 'Dynamic QR Code' : '6-Digit Passcode';
-  const refId = cardData.refId || `REC-${cardData.sessionId || 'ATT'}-${Math.floor(100000 + Math.random() * 900000)}`;
+  const method = cardData.method === 'qr_code' ? 'Dynamic QR Code' : '4-Digit Rotating Passcode';
+  const isFlagged = Boolean(cardData.flagged || String(cardData.status || '').toLowerCase() === 'flagged');
+  const refId = isFlagged ? null : (cardData.receipt_code || cardData.refId || null);
   const studentName = student ? `${student.first_name} ${student.last_name}` : 'Student Account';
   const indexNumber = student?.index_number || '5261000667';
 
@@ -96,16 +97,17 @@ export default function AttendanceCardModal({
             display: 'inline-flex',
             alignItems: 'center',
             gap: 6,
-            background: 'rgba(16, 185, 129, 0.25)',
-            border: '1px solid rgba(16, 185, 129, 0.4)',
-            color: '#a7f3d0',
+            background: isFlagged ? 'rgba(245, 158, 11, 0.25)' : 'rgba(16, 185, 129, 0.25)',
+            border: isFlagged ? '1px solid rgba(251, 191, 36, 0.5)' : '1px solid rgba(16, 185, 129, 0.4)',
+            color: isFlagged ? '#fef3c7' : '#a7f3d0',
             padding: '4px 12px',
             borderRadius: 20,
             fontSize: 12,
             fontWeight: 700,
             marginTop: 6
           }}>
-            <CheckCircle2 size={14} /> PRESENCE VERIFIED & RECORDED
+            <CheckCircle2 size={14} />
+            {isFlagged ? 'FLAGGED — AWAITING LECTURER CONFIRMATION' : 'PRESENCE VERIFIED & RECORDED'}
           </div>
         </div>
 
@@ -200,37 +202,55 @@ export default function AttendanceCardModal({
           </div>
 
           {/* Official Verification Reference Seal */}
-          <div style={{
-            background: '#f0fdf4',
-            border: '1px solid #bbf7d0',
-            borderRadius: 12,
-            padding: '10px 14px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: 20
-          }}>
-            <div>
-              <div style={{ fontSize: 10, color: '#166534', fontWeight: 700, textTransform: 'uppercase' }}>
-                Digital Verification ID
-              </div>
-              <div style={{ fontSize: 13, fontWeight: 900, color: '#15803d', fontFamily: 'monospace', letterSpacing: 1 }}>
-                {refId}
-              </div>
-            </div>
+          {isFlagged ? (
             <div style={{
-              width: 32,
-              height: 32,
-              borderRadius: '50%',
-              background: '#dcfce7',
-              color: '#16a34a',
+              background: '#fffbeb',
+              border: '1px solid #fde68a',
+              borderRadius: 12,
+              padding: '12px 14px',
+              marginBottom: 20,
+              fontSize: 12,
+              color: '#92400e',
+              lineHeight: 1.5
+            }}>
+              <div style={{ fontWeight: 800, color: '#b45309', marginBottom: 4 }}>
+                ⚠️ Shared/New Device Detected — Attendance Code Pending
+              </div>
+              This device has already been used or registered by another student. Contact your <strong>Lecturer</strong> to confirm this alert in <strong>Device Alerts</strong> so your sequential attendance code (e.g. <code>ATT-0001-GP1</code>) can be issued.
+            </div>
+          ) : (
+            <div style={{
+              background: '#f0fdf4',
+              border: '1px solid #bbf7d0',
+              borderRadius: 12,
+              padding: '10px 14px',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center'
+              justifyContent: 'space-between',
+              marginBottom: 20
             }}>
-              <CheckCircle2 size={18} />
+              <div>
+                <div style={{ fontSize: 10, color: '#166534', fontWeight: 700, textTransform: 'uppercase' }}>
+                  Sequential Attendance Code
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 900, color: '#15803d', fontFamily: 'monospace', letterSpacing: 1 }}>
+                  {refId || 'CONFIRMED'}
+                </div>
+              </div>
+              <div style={{
+                width: 32,
+                height: 32,
+                borderRadius: '50%',
+                background: '#dcfce7',
+                color: '#16a34a',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <CheckCircle2 size={18} />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Action Buttons */}
           <div style={{ display: 'flex', gap: 10 }}>

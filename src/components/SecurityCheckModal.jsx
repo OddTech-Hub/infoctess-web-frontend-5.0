@@ -8,9 +8,10 @@ export default function SecurityCheckModal({
   onRetry,
   sessionData,
   student,
-  validationError = null // e.g. "Location out of range" or "Code expired"
+  validationError = null,
+  validationStatus = 'checking' // 'checking' | 'passed' | 'flagged' | 'error'
 }) {
-  // Steps: 0 = not started, 1 = checking location, 2 = checking token, 3 = authenticating device, 4 = complete!
+  // Steps: 1 = location, 2 = token, 3 = device & server verify, 4 = complete
   const [currentStep, setCurrentStep] = useState(1);
   const [failedStep, setFailedStep] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
@@ -23,48 +24,40 @@ export default function SecurityCheckModal({
       return;
     }
 
-    // If validationError is already passed in from backend failure
-    if (validationError) {
-      const errLower = validationError.toLowerCase();
-      if (errLower.includes('location') || errLower.includes('distance') || errLower.includes('radius') || errLower.includes('geofence')) {
+    if (validationError || validationStatus === 'error') {
+      const msg = validationError || 'Verification failed. Please check the active session code and try again.';
+      const errLower = msg.toLowerCase();
+      if (errLower.includes('location') || errLower.includes('distance') || errLower.includes('radius') || errLower.includes('geofence') || errLower.includes('gps')) {
         setFailedStep(1);
-        setErrorMessage(validationError || 'You appear to be outside the classroom radius.');
-      } else if (errLower.includes('expired') || errLower.includes('token') || errLower.includes('code') || errLower.includes('time')) {
+      } else if (errLower.includes('invalid') || errLower.includes('expired') || errLower.includes('token') || errLower.includes('code') || errLower.includes('session')) {
         setFailedStep(2);
-        setErrorMessage(validationError || 'The 90-second dynamic code has expired. Please scan or enter the latest refreshed code.');
       } else {
         setFailedStep(3);
-        setErrorMessage(validationError || 'Device binding check or student authentication failed.');
       }
+      setErrorMessage(msg);
       return;
     }
 
-    // Rapid automated 3-layer check sequence (~400ms per step)
-    let t1, t2, t3, t4;
-
-    t1 = setTimeout(() => {
-      setCurrentStep(2); // Step 1 passed!
-    }, 450);
-
-    t2 = setTimeout(() => {
-      setCurrentStep(3); // Step 2 passed!
-    }, 900);
-
-    t3 = setTimeout(() => {
-      setCurrentStep(4); // Step 3 passed!
-    }, 1350);
-
-    t4 = setTimeout(() => {
-      if (onSuccessComplete) onSuccessComplete();
-    }, 1800);
-
+    setFailedStep(null);
+    setErrorMessage('');
+    const t1 = setTimeout(() => setCurrentStep(prev => Math.max(prev, 2)), 300);
+    const t2 = setTimeout(() => setCurrentStep(prev => Math.max(prev, 3)), 650);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
-      clearTimeout(t3);
-      clearTimeout(t4);
     };
-  }, [isOpen, validationError]);
+  }, [isOpen, validationError, validationStatus]);
+
+  useEffect(() => {
+    if (!isOpen || failedStep) return;
+    if (currentStep >= 3 && (validationStatus === 'passed' || validationStatus === 'flagged')) {
+      setCurrentStep(4);
+      const doneTimer = setTimeout(() => {
+        if (onSuccessComplete) onSuccessComplete();
+      }, 350);
+      return () => clearTimeout(doneTimer);
+    }
+  }, [isOpen, currentStep, validationStatus, failedStep, onSuccessComplete]);
 
   if (!isOpen) return null;
 
@@ -229,14 +222,14 @@ export default function SecurityCheckModal({
                   Action Required
                 </div>
                 <div style={{ fontSize: 12, color: '#b45309', marginTop: 4, lineHeight: 1.4 }}>
-                  {failedStep === 1 && (
-                    <span>You appear to be outside the classroom perimeter. Please <strong>move inside the lecture hall</strong> and click Try Again, or approach the lecturer to be marked manually.</span>
-                  )}
-                  {failedStep === 2 && (
-                    <span>The 90-second dynamic code has refreshed. Please <strong>check the projector screen</strong> for the latest 6-digit code and try again.</span>
-                  )}
-                  {failedStep === 3 && (
-                    <span>Device check failed. Please ensure you are logged in from your own registered student device, or speak with your Course Rep.</span>
+                  {errorMessage ? (
+                    <span>{errorMessage}</span>
+                  ) : failedStep === 1 ? (
+                    <span>You appear to be outside the classroom perimeter. Please <strong>move inside the lecture hall</strong> and click Try Again.</span>
+                  ) : failedStep === 2 ? (
+                    <span>The active session code did not match or has refreshed. Please <strong>check the projector screen</strong> and try again.</span>
+                  ) : (
+                    <span>Device check or enrollment check failed. Please speak with your Lecturer.</span>
                   )}
                 </div>
               </div>
