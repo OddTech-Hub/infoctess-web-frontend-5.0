@@ -235,17 +235,6 @@ export default function Login() {
                 </>
               )}
             </button>
-
-            <div style={{ marginTop: 24, textAlign: 'center', fontSize: 12, color: '#64748b' }}>
-              <span>Are you a faculty lecturer or course rep? </span>
-              <a
-                href="/portal"
-                onClick={(e) => { e.preventDefault(); navigate('/portal'); }}
-                style={{ color: '#2A6B9E', fontWeight: 600, textDecoration: 'none' }}
-              >
-                Staff Portal
-              </a>
-            </div>
           </form>
         </div>
       </div>

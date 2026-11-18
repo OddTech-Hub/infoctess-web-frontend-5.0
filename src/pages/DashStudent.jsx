@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   GraduationCap, QrCode, Camera, CheckCircle2, AlertTriangle,
   Clock, BookOpen, ShieldCheck, LogOut, RefreshCw, User, Sparkles,
-  Smartphone, MapPin, Search, ChevronRight, X, AlertCircle, Award, FileText
+  Smartphone, MapPin, Search, ChevronRight, X, AlertCircle, Award, FileText, ArrowLeft
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../api/config';
@@ -953,22 +953,40 @@ export default function DashStudent() {
       {showCheckinModal && (
         <div style={{
           position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.7)', backdropFilter: 'blur(6px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9000, padding: 16
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9000, padding: 12
         }}>
           <div style={{
-            background: 'white', borderRadius: 24, padding: 24, width: '100%', maxWidth: 440,
+            background: 'white', borderRadius: 24, padding: 20, width: '100%', maxWidth: 440,
+            maxHeight: '92vh', overflowY: 'auto',
             boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <QrCode size={20} color="#1E5A87" />
-                <h3 style={{ fontSize: 17, fontWeight: 800, margin: 0, color: '#0f172a' }}>Check In To Class</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingBottom: 10, borderBottom: '1px solid #f1f5f9' }}>
+              <button
+                type="button"
+                onClick={async () => { await stopCameraScanner(); setShowCheckinModal(false); }}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  padding: '6px 11px', borderRadius: 10, background: '#f1f5f9',
+                  border: '1px solid #cbd5e1', color: '#0f172a', fontWeight: 700, fontSize: 12, cursor: 'pointer'
+                }}
+              >
+                <ArrowLeft size={14} /> Back
+              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <QrCode size={18} color="#1E5A87" />
+                <h3 style={{ fontSize: 15, fontWeight: 800, margin: 0, color: '#0f172a' }}>Check In To Class</h3>
               </div>
               <button
+                type="button"
+                aria-label="Close check-in"
                 onClick={async () => { await stopCameraScanner(); setShowCheckinModal(false); }}
-                style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: 4 }}
+                style={{
+                  width: 32, height: 32, borderRadius: 10, background: '#f1f5f9',
+                  border: '1px solid #cbd5e1', color: '#475569', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}
               >
-                <X size={20} />
+                <X size={16} />
               </button>
             </div>
 

@@ -6,8 +6,9 @@ import {
   FileText, GraduationCap, ChevronDown, RefreshCw,
   Download, Upload, FileSpreadsheet, Eye, PanelLeftClose, PanelLeftOpen, Clock,
   XCircle, Loader, Layers, Check, ChevronRight,
-  Smartphone, AlertOctagon, Shield, Wifi, X, Info, Sparkles
-, Maximize2} from "lucide-react";
+  Smartphone, AlertOctagon, Shield, Wifi, X, Info, Sparkles,
+  Maximize2, ArrowLeft, PlusCircle, Search, UserCheck
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { request } from "../api/client";
 import { API_BASE_URL } from "../api/config";
@@ -562,13 +563,19 @@ export default function LecturerDashboard() {
   const [viewListSession, setViewListSession] = useState(null);
   const [viewListLoading, setViewListLoading] = useState(false);
   const [viewListStudents, setViewListStudents] = useState([]);
+  const [manualMarkSearch, setManualMarkSearch] = useState("");
+  const [manualMarkingId, setManualMarkingId] = useState(null);
 
   const [showProjector, setShowProjector] = useState(false);
   const [countdown, setCountdown] = useState(0);
+  const [extendingSession, setExtendingSession] = useState(false);
   const timerRef = useRef(null);
 
-  // Students tab
+  // Students & Reports tab scoping
   const [studentTab, setStudentTab] = useState("all");
+  const [selectedStudentCourse, setSelectedStudentCourse] = useState("");
+  const [selectedStudentGroup, setSelectedStudentGroup] = useState("");
+  const [reportsCourse, setReportsCourse] = useState("");
   const [alertModalStudent, setAlertModalStudent] = useState(null);
   const [flaggedList, setFlaggedList] = useState([]);
 
@@ -580,6 +587,7 @@ export default function LecturerDashboard() {
 
   // Course Rep Management state
   const [repMode, setRepMode] = useState("existing");
+  const [repSearch, setRepSearch] = useState("");
   const [selectedRepStudentId, setSelectedRepStudentId] = useState("");
   const [courseReps, setCourseReps] = useState([]);
   const [repFirstName, setRepFirstName] = useState("");
@@ -695,9 +703,19 @@ export default function LecturerDashboard() {
     }
   };
 
+  const isAllowedRosterFile = (file) => {
+    const ext = String(file?.name || "").split(".").pop().toLowerCase();
+    return ["csv", "xlsx", "xls"].includes(ext);
+  };
+
   const handleGroupCSVUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    if (!isAllowedRosterFile(file)) {
+      alert("Unsupported file format. Only valid Excel (.xlsx, .xls) or CSV (.csv) student rosters with Index Number and Student Name columns are accepted. Word (.doc, .docx) and other files are rejected.");
+      e.target.value = "";
+      return;
+    }
     const targetGroupName = selectedGroup || groups[0] || "";
     if (!targetGroupName) {
       alert("Please create or select a group first before uploading students.");
@@ -1017,7 +1035,9 @@ export default function LecturerDashboard() {
           alertType: s.alertType || s.alert_type,
           flagReason: s.flagReason || s.flag_reason,
           group: s.group || "Unassigned",
-          groups: Array.isArray(s.groups) && s.groups.length > 0 ? s.groups : (s.group ? [s.group] : [])
+          groups: Array.isArray(s.groups) && s.groups.length > 0 ? s.groups : (s.group ? [s.group] : []),
+          groupStats: s.group_stats || {},
+          courseStats: s.course_stats || {}
         }));
 
         const formattedSessions = (jsonSum.data.sessions || []).map(s => ({
@@ -1043,6 +1063,9 @@ export default function LecturerDashboard() {
         setStats(jsonSum.data.stats || { courses: 0, groups: 0, lowAttendance: 0, flagged: 0 });
         if (isSwitchingLevel) {
           setSelectedGroupCourse("");
+          setSelectedStudentCourse("");
+          setSelectedStudentGroup("");
+          setReportsCourse("");
         }
 
         const updatedLevel = {
@@ -1127,6 +1150,8 @@ export default function LecturerDashboard() {
           deviceId: s.deviceId || s.device_id,
           group: s.group || "Unassigned",
           groups: Array.isArray(s.groups) && s.groups.length > 0 ? s.groups : (s.group ? [s.group] : []),
+          groupStats: s.group_stats || {},
+          courseStats: s.course_stats || {},
           flagged: s.flagged,
           flagReason: s.flagReason || s.flag_reason,
           alertType: s.alertType || s.alert_type,
@@ -1238,7 +1263,7 @@ export default function LecturerDashboard() {
     navigator.geolocation.getCurrentPosition(
       (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
       () => resolve(null),
-      { enableHighAccuracy: true, timeout: 3500, maximumAge: 60000 }
+      { enableHighAccuracy: true, timeout: 6000, maximumAge: 30000 }
     );
   });
 
@@ -1252,6 +1277,11 @@ export default function LecturerDashboard() {
 
     try {
       const coords = await getClassroomCoords();
+      if (!coords) {
+        alert("Unable to detect your lecture hall GPS location. Please turn on Location / GPS on your device and allow browser location access before opening an attendance session.");
+        return;
+      }
+
       const matchingGroup = (selectedGroup && String(selectedGroup).toUpperCase().startsWith(String(targetCourse).toUpperCase() + " - "))
         ? selectedGroup
         : groups.find(g => String(g).toUpperCase().startsWith(String(targetCourse).toUpperCase() + " - "));
@@ -1259,13 +1289,11 @@ export default function LecturerDashboard() {
       const payload = {
         course_id: targetCourse,
         time_window: parseInt(timeWindow) || 10,
-        allowed_radius: parseInt(allowedRadius) || 50
+        allowed_radius: parseInt(allowedRadius) || 50,
+        latitude: coords.lat,
+        longitude: coords.lng
       };
       if (matchingGroup) payload.group_id = matchingGroup;
-      if (coords) {
-        payload.latitude = coords.lat;
-        payload.longitude = coords.lng;
-      }
 
       const res = await request("/api/sessions/create/", {
         method: "POST",
@@ -1279,10 +1307,13 @@ export default function LecturerDashboard() {
       }
 
       if (res.ok && json.success) {
+        const initRem = typeof json.data.remaining_seconds === "number"
+          ? json.data.remaining_seconds
+          : (parseInt(timeWindow) || 10) * 60;
         setSessionCode(json.data.id);
         setSessionCourseName(json.data.courseName || "");
         setSessionActive(true);
-        setCountdown((parseInt(timeWindow) || 10) * 60);
+        setCountdown(initRem);
         if (selectedLevel) {
           await selectLevel(selectedLevel);
         }
@@ -1291,6 +1322,30 @@ export default function LecturerDashboard() {
       }
     } catch (err) {
       alert("Failed to open session: " + err.message);
+    }
+  };
+
+  const handleExtendSession = async (minutes = 5) => {
+    if (!sessionCode || extendingSession) return;
+    setExtendingSession(true);
+    try {
+      const res = await request(`/api/sessions/${sessionCode}/extend/`, {
+        method: "POST",
+        body: JSON.stringify({ minutes })
+      });
+      const json = await res.json();
+      if (res.ok && json.success && json.data) {
+        if (typeof json.data.remaining_seconds === "number") {
+          setCountdown(json.data.remaining_seconds);
+        }
+        syncActiveSessions();
+      } else {
+        alert(json.message || "Could not extend session duration.");
+      }
+    } catch (err) {
+      alert("Failed to extend session: " + err.message);
+    } finally {
+      setExtendingSession(false);
     }
   };
 
@@ -1306,24 +1361,13 @@ export default function LecturerDashboard() {
       setSessionActive(false);
       setSessionCourseName("");
       setSessionCode(null);
+      setCountdown(0);
       clearInterval(timerRef.current);
-      await selectLevel(level);
+      if (level) await selectLevel(level);
     } catch (err) {
       alert("Failed to close session: " + err.message);
     }
   };
-
-  useEffect(() => {
-    if (sessionActive && countdown > 0) {
-      timerRef.current = setInterval(() => {
-        setCountdown(c => {
-          if (c <= 1) { clearInterval(timerRef.current); setSessionActive(false); return 0; }
-          return c - 1;
-        });
-      }, 1000);
-    }
-    return () => clearInterval(timerRef.current);
-  }, [sessionActive]);
 
   // ── SYNC ACTIVE SESSION FROM BACKEND (Ensures session is never lost on refresh) ──
   const syncActiveSessions = useCallback(async () => {
@@ -1336,6 +1380,9 @@ export default function LecturerDashboard() {
           const sId = active.id || active.session_code;
           setSessionCode(sId);
           setSessionActive(true);
+          if (typeof active.remaining_seconds === "number") {
+            setCountdown(active.remaining_seconds);
+          }
           const cCode = active.courseCode || (typeof active.course === 'object' ? active.course.code : active.course) || "";
           setQrCourse(cCode);
           setSessionCourseName(active.courseName || (typeof active.course === 'object' ? active.course.name : "Class Attendance"));
@@ -1345,6 +1392,7 @@ export default function LecturerDashboard() {
         } else {
           setSessionActive(false);
           setSessionCode(null);
+          setCountdown(0);
         }
       }
     } catch (e) {
@@ -1353,18 +1401,74 @@ export default function LecturerDashboard() {
   }, []);
 
   useEffect(() => {
+    if (sessionActive && countdown > 0) {
+      timerRef.current = setInterval(() => {
+        setCountdown(c => {
+          if (c <= 1) {
+            clearInterval(timerRef.current);
+            setSessionActive(false);
+            setTimeout(() => syncActiveSessions(), 800);
+            return 0;
+          }
+          return c - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(timerRef.current);
+  }, [sessionActive, syncActiveSessions]);
+
+  useEffect(() => {
     syncActiveSessions();
     const syncInterval = setInterval(syncActiveSessions, 2000);
     return () => clearInterval(syncInterval);
   }, [syncActiveSessions]);
 
-  // View full list of students for a session
-  
+  // Mobile hardware back button & Escape closes lecturer modals safely (ProjectorModal manages its own)
+  useEffect(() => {
+    if (showProjector) return;
+    const anyModalOpen = Boolean(viewListSession || showCoursesModal || showAddStudentModal || showUploadModal || alertModalStudent);
+    if (!anyModalOpen) return;
+
+    let pushedHistory = false;
+    try {
+      window.history.pushState({ lecModal: true }, "");
+      pushedHistory = true;
+    } catch (e) { /* ignore */ }
+
+    const closeTopModal = () => {
+      if (viewListSession) { setViewListSession(null); return; }
+      if (alertModalStudent) { setAlertModalStudent(null); return; }
+      if (showAddStudentModal) { setShowAddStudentModal(false); return; }
+      if (showUploadModal) { setShowUploadModal(false); return; }
+      if (showCoursesModal) { setShowCoursesModal(false); }
+    };
+
+    const handleKey = (e) => { if (e.key === "Escape") closeTopModal(); };
+    const handlePop = () => { pushedHistory = false; closeTopModal(); };
+
+    window.addEventListener("keydown", handleKey);
+    window.addEventListener("popstate", handlePop);
+    return () => {
+      window.removeEventListener("keydown", handleKey);
+      window.removeEventListener("popstate", handlePop);
+      if (pushedHistory && window.history.state?.lecModal) {
+        try { window.history.back(); } catch (e) { /* ignore */ }
+      }
+    };
+  }, [showProjector, viewListSession, showCoursesModal, showAddStudentModal, showUploadModal, alertModalStudent]);
+
   // ── HANDLE CSV/EXCEL BULK STUDENT UPLOAD (Index Number & Gmail) ──
   const handleCSVUpload = async (e) => {
     e.preventDefault();
     if (!uploadFile) {
       alert("Please select an Excel (.xlsx / .xls) or CSV file to upload.");
+      return;
+    }
+    if (!isAllowedRosterFile(uploadFile)) {
+      setUploadFeedback({
+        type: "error",
+        msg: "Unsupported file format. Only Excel (.xlsx, .xls) or CSV (.csv) student rosters with Index Number and Student Name columns are accepted. Word (.doc, .docx) and other files are rejected."
+      });
       return;
     }
 
@@ -1415,16 +1519,106 @@ export default function LecturerDashboard() {
     }
   };
 
+  const normalizeGroupKey = (val) => String(val || "").trim().toLowerCase().replace(/\s+/g, "");
+
+  const studentMatchesGroup = (studentObj, targetGroup) => {
+    if (!studentObj || !targetGroup) return true;
+    const tKey = normalizeGroupKey(targetGroup);
+    if (normalizeGroupKey(studentObj.group) === tKey) return true;
+    if (Array.isArray(studentObj.groups)) {
+      return studentObj.groups.some(g => normalizeGroupKey(g) === tKey);
+    }
+    return false;
+  };
+
+  const studentEnrolledInCourse = (studentObj, targetCourse) => {
+    if (!studentObj || !targetCourse) return true;
+    const cUpper = String(targetCourse).trim().toUpperCase();
+    if (studentObj.courseStats && Object.keys(studentObj.courseStats).some(k => String(k).toUpperCase() === cUpper)) {
+      return true;
+    }
+    const prefix = cUpper + "-";
+    const allGroups = Array.isArray(studentObj.groups) && studentObj.groups.length > 0
+      ? studentObj.groups
+      : (studentObj.group ? [studentObj.group] : []);
+    return allGroups.some(g => normalizeGroupKey(g).toUpperCase().startsWith(prefix));
+  };
+
+  const getStudentScopedMetrics = (studentObj, targetCourse = "", targetGroup = "") => {
+    if (!studentObj) return { attended: 0, total: 0, pct: 0 };
+    if (targetGroup && studentObj.groupStats) {
+      const tKey = normalizeGroupKey(targetGroup);
+      const matchedEntry = Object.entries(studentObj.groupStats).find(
+        ([k]) => normalizeGroupKey(k) === tKey
+      );
+      if (matchedEntry) {
+        const val = matchedEntry[1];
+        return {
+          attended: val.attended ?? 0,
+          total: val.total ?? 0,
+          pct: (val.total ?? 0) > 0 ? (val.pct ?? 0) : 0
+        };
+      }
+      return { attended: 0, total: 0, pct: 0 };
+    }
+    if (targetCourse && studentObj.courseStats) {
+      const cUpper = String(targetCourse).trim().toUpperCase();
+      const matchedCourseEntry = Object.entries(studentObj.courseStats).find(
+        ([k]) => String(k).trim().toUpperCase() === cUpper
+      );
+      if (matchedCourseEntry) {
+        const val = matchedCourseEntry[1];
+        return {
+          attended: val.attended ?? 0,
+          total: val.total ?? 0,
+          pct: (val.total ?? 0) > 0 ? (val.pct ?? 0) : 0
+        };
+      }
+      return { attended: 0, total: 0, pct: 0 };
+    }
+    const tot = studentObj.total ?? 0;
+    const att = studentObj.attended ?? 0;
+    return { attended: att, total: tot, pct: tot > 0 ? (studentObj.pct ?? 0) : 0 };
+  };
+
   const handleViewSessionList = async (sess) => {
     const sId = sess.id || sess.session_code;
-    setViewListSession(sess);
+    setManualMarkSearch("");
+    setViewListSession({
+      ...sess,
+      id: sId,
+      course: sess.course || (typeof sess.course === "object" ? sess.course.code : ""),
+      courseName: sess.courseName || ""
+    });
     setViewListLoading(true);
     setViewListStudents([]);
     try {
       const res = await request(`/api/sessions/${sId}/`);
       const json = await res.json();
-      if (json.success && json.data && Array.isArray(json.data.students)) {
-        setViewListStudents(json.data.students);
+      if (json.success && json.data) {
+        const d = json.data;
+        setViewListSession(prev => prev ? {
+          ...prev,
+          status: d.status || prev.status,
+          course: d.courseCode || prev.course,
+          courseName: d.courseName || prev.courseName,
+          date: d.date || prev.date,
+          checkins: typeof d.checkins === "number" ? d.checkins : prev.checkins
+        } : prev);
+        if (Array.isArray(d.students)) {
+          setViewListStudents(d.students);
+        } else if (Array.isArray(d.records)) {
+          setViewListStudents(d.records.map(r => ({
+            id: r.id,
+            name: r.student ? `${r.student.first_name} ${r.student.last_name}`.trim() : (r.name || "Student"),
+            index: r.student ? r.student.index_number : (r.index || ""),
+            time: r.checked_in_at ? new Date(r.checked_in_at).toLocaleTimeString() : (r.time || ""),
+            method: r.method === "qr_code" ? "QR Code" : (r.method === "manual_lecturer" ? "Manual (Lecturer)" : "Session Code"),
+            receipt_code: r.receipt_code || null,
+            status: r.status || "confirmed",
+            device_name: r.device_name || ""
+          })));
+        }
       } else if (Array.isArray(sess.students)) {
         setViewListStudents(sess.students);
       }
@@ -1433,6 +1627,38 @@ export default function LecturerDashboard() {
       setViewListStudents(sess.students || []);
     } finally {
       setViewListLoading(false);
+    }
+  };
+
+  const handleManualMarkPresent = async (studentObj) => {
+    if (!viewListSession || !studentObj || manualMarkingId) return;
+    const sId = viewListSession.id || viewListSession.session_code;
+    setManualMarkingId(studentObj.id || studentObj.index);
+    try {
+      const res = await request(`/api/sessions/${sId}/manual-mark/`, {
+        method: "POST",
+        body: JSON.stringify({
+          student_id: studentObj.id,
+          index_number: studentObj.index
+        })
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        alert(json.message || "Could not mark student present.");
+        return;
+      }
+      const added = json.data;
+      setViewListStudents(prev => {
+        const exists = prev.some(p => String(p.index || "").toUpperCase() === String(added.index || "").toUpperCase());
+        return exists ? prev : [...prev, added];
+      });
+      setViewListSession(prev => prev ? { ...prev, checkins: (prev.checkins || 0) + 1 } : prev);
+      setSessions(prev => prev.map(s => (s.id === sId ? { ...s, checkins: (s.checkins || 0) + 1 } : s)));
+      if (selectedLevel) silentRefreshLevel(selectedLevel);
+    } catch (err) {
+      alert("Error marking student present: " + err.message);
+    } finally {
+      setManualMarkingId(null);
     }
   };
 
@@ -1823,8 +2049,10 @@ export default function LecturerDashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                      {level.students.filter(s => !group || s.group === group || (Array.isArray(s.groups) && s.groups.includes(group))).map((row, i) => (
-                        <tr key={row.id} style={{ background: (row.total > 0 && row.pct < 75) ? "#fff7f7" : "white", borderBottom: "1px solid #f1f5f9" }}>
+                      {level.students.filter(s => (!course || studentEnrolledInCourse(s, course)) && (!group || studentMatchesGroup(s, group))).map((row, i) => {
+                        const m = getStudentScopedMetrics(row, course, group);
+                        return (
+                        <tr key={row.id} style={{ background: (m.total > 0 && m.pct < 75) ? "#fff7f7" : "white", borderBottom: "1px solid #f1f5f9" }}>
                           <td style={{ padding: "12px 14px", color: "#94a3b8" }}>{i + 1}</td>
                           <td style={{ padding: "12px 14px", whiteSpace: "nowrap" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -1837,11 +2065,12 @@ export default function LecturerDashboard() {
                             </div>
                           </td>
                           <td style={{ padding: "12px 14px", color: "#64748b", whiteSpace: "nowrap" }}>{row.index}</td>
-                          <td style={{ padding: "12px 14px" }}>{row.attended}</td>
-                          <td style={{ padding: "12px 14px" }}>{row.total}</td>
-                          <td style={{ padding: "12px 14px" }}>{pctBadge(row.pct, row.total)}</td>
+                          <td style={{ padding: "12px 14px" }}>{m.attended}</td>
+                          <td style={{ padding: "12px 14px" }}>{m.total}</td>
+                          <td style={{ padding: "12px 14px" }}>{pctBadge(m.pct, m.total)}</td>
                         </tr>
-                      ))}
+                        );
+                      })}
                       </tbody>
                     </table>
                   </div>
@@ -1904,9 +2133,19 @@ export default function LecturerDashboard() {
                       <QrCode size={16} /> Open Session
                     </button>
                   ) : (
-                    <button onClick={closeSession} style={{ width: "100%", padding: "12px", border: "none", borderRadius: 10, background: "#ef4444", color: "white", fontWeight: 700, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                      <XCircle size={16} /> Close Session
-                    </button>
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <button
+                        type="button"
+                        disabled={extendingSession}
+                        onClick={() => handleExtendSession(5)}
+                        style={{ flex: 1, padding: "12px", border: "1px solid #bfdbfe", borderRadius: 10, background: "#eff6ff", color: "#1d4ed8", fontWeight: 700, fontSize: 13, cursor: extendingSession ? "wait" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+                      >
+                        <PlusCircle size={15} /> {extendingSession ? "..." : "+5m"}
+                      </button>
+                      <button onClick={closeSession} style={{ flex: 1.5, padding: "12px", border: "none", borderRadius: 10, background: "#ef4444", color: "white", fontWeight: 700, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                        <XCircle size={16} /> Close Session
+                      </button>
+                    </div>
                   )}
                 </div>
 
@@ -2065,6 +2304,21 @@ export default function LecturerDashboard() {
                     <div style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.08)", padding: "8px 14px", borderRadius: 12, fontSize: 13, fontWeight: 700, color: countdown < 60 ? "#f87171" : "#38bdf8" }}>
                       <Clock size={16} /> {fmtTime(countdown)} left
                     </div>
+
+                    <button
+                      type="button"
+                      disabled={extendingSession}
+                      onClick={() => handleExtendSession(5)}
+                      style={{
+                        padding: "10px 14px", borderRadius: 12,
+                        background: "rgba(56, 189, 248, 0.16)", color: "#e0f2fe",
+                        border: "1px solid rgba(56, 189, 248, 0.4)",
+                        fontWeight: 700, fontSize: 13, cursor: extendingSession ? "wait" : "pointer",
+                        display: "flex", alignItems: "center", gap: 6
+                      }}
+                    >
+                      <PlusCircle size={15} /> {extendingSession ? "Extending..." : "Extend +5m"}
+                    </button>
 
                     <button
                       type="button"
@@ -2452,15 +2706,38 @@ export default function LecturerDashboard() {
             </div>
 
             {/* Detailed student table */}
+            {(() => {
+              const reportFilteredStudents = level.students
+                .filter(s => !reportsCourse || studentEnrolledInCourse(s, reportsCourse))
+                .sort((a, b) => {
+                  const ma = getStudentScopedMetrics(a, reportsCourse, "");
+                  const mb = getStudentScopedMetrics(b, reportsCourse, "");
+                  return (mb.total > 0 ? mb.pct : -1) - (ma.total > 0 ? ma.pct : -1);
+                });
+              return (
             <div style={{ background: "white", borderRadius: 16, border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)", overflow: "hidden" }}>
               <div style={{ padding: isMobile ? "14px 16px" : "18px 24px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 15 }}>Detailed Student Attendance</div>
-                  <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>All students · {level.label}</div>
+                  <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>
+                    {reportsCourse ? `${reportsCourse} · ` : "All courses · "}{level.label} ({reportFilteredStudents.length} students)
+                  </div>
                 </div>
-                <button onClick={handleExportCSV} style={{ display: "flex", alignItems: "center", gap: 8, background: "#1e3a5f", color: "#60a5fa", border: "none", borderRadius: 9, padding: "9px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-                  <Download size={14} /> Export CSV
-                </button>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  {courses.length > 0 && (
+                    <select
+                      value={reportsCourse}
+                      onChange={e => setReportsCourse(e.target.value)}
+                      style={{ padding: "8px 12px", borderRadius: 9, border: "1px solid #cbd5e1", fontSize: 12, fontWeight: 600, background: "white", color: "#0f172a" }}
+                    >
+                      <option value="">All Courses</option>
+                      {courses.map(c => <option key={c.code} value={c.code}>{c.code} — {c.name}</option>)}
+                    </select>
+                  )}
+                  <button onClick={handleExportCSV} style={{ display: "flex", alignItems: "center", gap: 8, background: "#1e3a5f", color: "#60a5fa", border: "none", borderRadius: 9, padding: "9px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                    <Download size={14} /> Export CSV
+                  </button>
+                </div>
               </div>
               <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
                 <table style={{ width: "100%", minWidth: 680, borderCollapse: "collapse", fontSize: 13 }}>
@@ -2472,12 +2749,17 @@ export default function LecturerDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {[...level.students].sort((a, b) => ((b.total > 0 ? b.pct : -1) - (a.total > 0 ? a.pct : -1))).map((row, i) => (
-                      <tr key={row.id} style={{ background: (row.total > 0 && row.pct < 75) ? "#fff7f7" : "white", borderBottom: "1px solid #f1f5f9" }}>
+                    {reportFilteredStudents.map((row, i) => {
+                      const m = getStudentScopedMetrics(row, reportsCourse, "");
+                      const displayGroup = reportsCourse
+                        ? ((row.groups || []).find(g => normalizeGroupKey(g).toUpperCase().startsWith(reportsCourse.toUpperCase() + "-")) || row.group)
+                        : row.group;
+                      return (
+                      <tr key={row.id} style={{ background: (m.total > 0 && m.pct < 75) ? "#fff7f7" : "white", borderBottom: "1px solid #f1f5f9" }}>
                         <td style={{ padding: "11px 16px", color: "#94a3b8" }}>{i + 1}</td>
                         <td style={{ padding: "11px 16px", whiteSpace: "nowrap" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <div style={{ width: 28, height: 28, borderRadius: 8, background: row.total === 0 ? "#f1f5f9" : row.pct >= 75 ? "#dbeafe" : "#fee2e2", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: row.total === 0 ? "#64748b" : row.pct >= 75 ? "#1e40af" : "#991b1b", flexShrink: 0 }}>
+                            <div style={{ width: 28, height: 28, borderRadius: 8, background: m.total === 0 ? "#f1f5f9" : m.pct >= 75 ? "#dbeafe" : "#fee2e2", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: m.total === 0 ? "#64748b" : m.pct >= 75 ? "#1e40af" : "#991b1b", flexShrink: 0 }}>
                               {row.name.charAt(0)}
                             </div>
                             <div>
@@ -2488,26 +2770,29 @@ export default function LecturerDashboard() {
                         </td>
                         <td style={{ padding: "11px 16px", color: "#64748b", fontSize: 12, whiteSpace: "nowrap" }}>{row.index}</td>
                         <td style={{ padding: "11px 16px", whiteSpace: "nowrap" }}>
-                          <span style={{ fontSize: 11, background: "#f1f5f9", color: "#475569", padding: "2px 8px", borderRadius: 20, fontWeight: 600 }}>{row.group}</span>
+                          <span style={{ fontSize: 11, background: "#f1f5f9", color: "#475569", padding: "2px 8px", borderRadius: 20, fontWeight: 600 }}>{displayGroup}</span>
                         </td>
-                        <td style={{ padding: "11px 16px", fontWeight: 600 }}>{row.attended}</td>
-                        <td style={{ padding: "11px 16px", color: "#64748b" }}>{row.total}</td>
-                        <td style={{ padding: "11px 16px" }}>{pctBadge(row.pct, row.total)}</td>
+                        <td style={{ padding: "11px 16px", fontWeight: 600 }}>{m.attended}</td>
+                        <td style={{ padding: "11px 16px", color: "#64748b" }}>{m.total}</td>
+                        <td style={{ padding: "11px 16px" }}>{pctBadge(m.pct, m.total)}</td>
                         <td style={{ padding: "11px 16px", whiteSpace: "nowrap" }}>
                           <span style={{
                             fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20,
-                            background: row.total === 0 ? "#f1f5f9" : row.pct === 100 ? "#dbeafe" : row.pct >= 75 ? "#d1fae5" : row.pct >= 50 ? "#fef3c7" : "#fee2e2",
-                            color: row.total === 0 ? "#64748b" : row.pct === 100 ? "#1e40af" : row.pct >= 75 ? "#065f46" : row.pct >= 50 ? "#b45309" : "#991b1b"
+                            background: m.total === 0 ? "#f1f5f9" : m.pct === 100 ? "#dbeafe" : m.pct >= 75 ? "#d1fae5" : m.pct >= 50 ? "#fef3c7" : "#fee2e2",
+                            color: m.total === 0 ? "#64748b" : m.pct === 100 ? "#1e40af" : m.pct >= 75 ? "#065f46" : m.pct >= 50 ? "#b45309" : "#991b1b"
                           }}>
-                            {row.total === 0 ? "No Sessions" : row.pct === 100 ? "Perfect" : row.pct >= 75 ? "Good" : row.pct >= 50 ? "At Risk" : "Critical"}
+                            {m.total === 0 ? "No Sessions" : m.pct === 100 ? "Perfect" : m.pct >= 75 ? "Good" : m.pct >= 50 ? "At Risk" : "Critical"}
                           </span>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
             </div>
+              );
+            })()}
           </main>
         )}
 
@@ -2540,32 +2825,63 @@ export default function LecturerDashboard() {
               </div>
             )}
 
-            {/* Sub-tabs */}
-            <div style={{ display: "flex", gap: 0, background: "white", borderRadius: 12, padding: 4, marginBottom: 20, border: "1px solid #e2e8f0", width: "fit-content", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-              {[
-                { key: "all", label: "All Students", icon: Users },
-                { key: "flagged", label: "Device Alerts", icon: Smartphone, badge: flaggedList.length },
-              ].map(({ key, label, icon: Icon, badge }) => (
-                <button key={key} onClick={() => setStudentTab(key)} style={{
-                  display: "flex", alignItems: "center", gap: 8, padding: "9px 20px",
-                  border: "none", cursor: "pointer", borderRadius: 9,
-                  background: studentTab === key ? (key === "flagged" ? "#7f1d1d" : "#1e3a5f") : "transparent",
-                  color: studentTab === key ? (key === "flagged" ? "#fca5a5" : "#60a5fa") : "#64748b",
-                  fontWeight: studentTab === key ? 600 : 400, fontSize: 13, transition: "all 0.2s"
-                }}>
-                  <Icon size={14} />{label}
-                  {badge > 0 && (
-                    <span style={{ background: studentTab === key ? "rgba(255,255,255,0.25)" : "#ef4444", color: "white", fontSize: 10, fontWeight: 700, padding: "1px 7px", borderRadius: 20 }}>{badge}</span>
+            {/* Sub-tabs & Course/Group Scope Filters */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 20 }}>
+              <div style={{ display: "flex", gap: 0, background: "white", borderRadius: 12, padding: 4, border: "1px solid #e2e8f0", width: "fit-content", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+                {[
+                  { key: "all", label: "All Students", icon: Users },
+                  { key: "flagged", label: "Device Alerts", icon: Smartphone, badge: flaggedList.length },
+                ].map(({ key, label, icon: Icon, badge }) => (
+                  <button key={key} onClick={() => setStudentTab(key)} style={{
+                    display: "flex", alignItems: "center", gap: 8, padding: "9px 20px",
+                    border: "none", cursor: "pointer", borderRadius: 9,
+                    background: studentTab === key ? (key === "flagged" ? "#7f1d1d" : "#1e3a5f") : "transparent",
+                    color: studentTab === key ? (key === "flagged" ? "#fca5a5" : "#60a5fa") : "#64748b",
+                    fontWeight: studentTab === key ? 600 : 400, fontSize: 13, transition: "all 0.2s"
+                  }}>
+                    <Icon size={14} />{label}
+                    {badge > 0 && (
+                      <span style={{ background: studentTab === key ? "rgba(255,255,255,0.25)" : "#ef4444", color: "white", fontSize: 10, fontWeight: 700, padding: "1px 7px", borderRadius: 20 }}>{badge}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {studentTab === "all" && (courses.length > 0 || groups.length > 0) && (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  {courses.length > 0 && (
+                    <select
+                      value={selectedStudentCourse}
+                      onChange={e => {
+                        setSelectedStudentCourse(e.target.value);
+                        setSelectedStudentGroup("");
+                      }}
+                      style={{ padding: "9px 12px", borderRadius: 10, border: "1px solid #cbd5e1", background: "white", fontSize: 13, fontWeight: 600, color: "#0f172a" }}
+                    >
+                      <option value="">All Courses ({level.students.length})</option>
+                      {courses.map(c => <option key={c.code} value={c.code}>{c.code} — {c.name}</option>)}
+                    </select>
                   )}
-                </button>
-              ))}
+                  <select
+                    value={selectedStudentGroup}
+                    onChange={e => setSelectedStudentGroup(e.target.value)}
+                    style={{ padding: "9px 12px", borderRadius: 10, border: "1px solid #cbd5e1", background: "white", fontSize: 13, fontWeight: 600, color: "#0f172a" }}
+                  >
+                    <option value="">All Groups</option>
+                    {(selectedStudentCourse
+                      ? groups.filter(g => normalizeGroupKey(g).toUpperCase().startsWith(selectedStudentCourse.toUpperCase() + "-"))
+                      : groups
+                    ).map(g => <option key={g} value={g}>{g}</option>)}
+                  </select>
+                </div>
+              )}
             </div>
 
             {/* All students table sorted alphabetically with Group column */}
             {studentTab === "all" && (() => {
-              const sortedStudentsList = [...(level.students || [])].sort((a, b) => 
-                (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" })
-              );
+              const sortedStudentsList = [...(level.students || [])]
+                .filter(s => (!selectedStudentCourse || studentEnrolledInCourse(s, selectedStudentCourse)) && (!selectedStudentGroup || studentMatchesGroup(s, selectedStudentGroup)))
+                .sort((a, b) => (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" }));
 
               return (
                 <div style={{ background: "white", borderRadius: 16, border: "1px solid #e2e8f0", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
@@ -2582,12 +2898,23 @@ export default function LecturerDashboard() {
                         {sortedStudentsList.length === 0 ? (
                           <tr>
                             <td colSpan={8} style={{ textAlign: "center", padding: "36px", color: "#94a3b8", fontSize: 14 }}>
-                              No students enrolled yet. Navigate to the <strong>Groups</strong> tab to enroll students!
+                              {selectedStudentCourse || selectedStudentGroup
+                                ? "No students match this course/group filter."
+                                : <>No students enrolled yet. Navigate to the <strong>Groups</strong> tab to enroll students!</>}
                             </td>
                           </tr>
                         ) : (
-                          sortedStudentsList.map((row, i) => (
-                            <tr key={row.id || i} style={{ background: row.flagged ? "#fffbeb" : (row.total > 0 && row.pct < 75) ? "#fff7f7" : "white", borderBottom: "1px solid #f1f5f9" }}>
+                          sortedStudentsList.map((row, i) => {
+                            const m = getStudentScopedMetrics(row, selectedStudentCourse, selectedStudentGroup);
+                            const matchedGroupsList = Array.isArray(row.groups) && row.groups.length > 0
+                              ? (selectedStudentCourse
+                                  ? row.groups.filter(g => normalizeGroupKey(g).toUpperCase().startsWith(selectedStudentCourse.toUpperCase() + "-"))
+                                  : row.groups)
+                              : [row.group || "Unassigned"];
+                            const primaryGroupLabel = selectedStudentGroup || matchedGroupsList[0] || row.group || "Unassigned";
+
+                            return (
+                            <tr key={row.id || i} style={{ background: row.flagged ? "#fffbeb" : (m.total > 0 && m.pct < 75) ? "#fff7f7" : "white", borderBottom: "1px solid #f1f5f9" }}>
                               <td style={{ padding: "12px 16px", color: "#94a3b8" }}>{i + 1}</td>
                               <td style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
                                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -2602,18 +2929,28 @@ export default function LecturerDashboard() {
                               </td>
                               <td style={{ padding: "12px 16px", color: "#64748b", fontFamily: "monospace", whiteSpace: "nowrap" }}>{row.index}</td>
                               <td style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
-                                <span style={{
-                                  display: "inline-block",
-                                  background: "#eff6ff",
-                                  color: "#1d4ed8",
-                                  padding: "3px 10px",
-                                  borderRadius: 20,
-                                  fontSize: 12,
-                                  fontWeight: 700,
-                                  border: "1px solid #bfdbfe"
-                                }}>
-                                  {row.group || "Unassigned"}
-                                </span>
+                                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                                  <span style={{
+                                    display: "inline-block",
+                                    background: "#eff6ff",
+                                    color: "#1d4ed8",
+                                    padding: "3px 10px",
+                                    borderRadius: 20,
+                                    fontSize: 12,
+                                    fontWeight: 700,
+                                    border: "1px solid #bfdbfe"
+                                  }}>
+                                    {primaryGroupLabel}
+                                  </span>
+                                  {!selectedStudentCourse && !selectedStudentGroup && matchedGroupsList.length > 1 && (
+                                    <span style={{
+                                      display: "inline-block", background: "#f1f5f9", color: "#475569",
+                                      padding: "3px 8px", borderRadius: 20, fontSize: 11, fontWeight: 700
+                                    }}>
+                                      +{matchedGroupsList.length - 1} more
+                                    </span>
+                                  )}
+                                </div>
                               </td>
                               <td style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
                                 <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: row.flagged ? "#fef3c7" : "#f1f5f9", color: row.flagged ? "#b45309" : "#64748b", padding: "3px 9px", borderRadius: 20, fontSize: 12 }}>
@@ -2622,11 +2959,12 @@ export default function LecturerDashboard() {
                                   {row.device}
                                 </span>
                               </td>
-                              <td style={{ padding: "12px 16px", fontWeight: 600 }}>{row.attended}</td>
-                              <td style={{ padding: "12px 16px", color: "#64748b" }}>{row.total}</td>
-                              <td style={{ padding: "12px 16px" }}>{pctBadge(row.pct, row.total)}</td>
+                              <td style={{ padding: "12px 16px", fontWeight: 600 }}>{m.attended}</td>
+                              <td style={{ padding: "12px 16px", color: "#64748b" }}>{m.total}</td>
+                              <td style={{ padding: "12px 16px" }}>{pctBadge(m.pct, m.total)}</td>
                             </tr>
-                          ))
+                            );
+                          })
                         )}
                       </tbody>
                     </table>
@@ -2766,9 +3104,10 @@ export default function LecturerDashboard() {
                 const groupStudentsList = students.filter(s => studentInGroup(s, gName));
                 const totalInGroup = groupStudentsList.length;
                 const pieItem = Array.isArray(level.groupPieData) ? level.groupPieData.find(p => p.label === gName) : null;
-                const activeGroupStudents = groupStudentsList.filter(s => (s.total || 0) > 0);
-                const avgPct = pieItem ? pieItem.avg : (activeGroupStudents.length > 0 ? Math.round(activeGroupStudents.reduce((acc, s) => acc + s.pct, 0) / activeGroupStudents.length) : 0);
-                const truantCount = groupStudentsList.filter(s => (s.total || 0) > 0 && s.pct < 40).length;
+                const scopedMetricsList = groupStudentsList.map(s => getStudentScopedMetrics(s, selectedGroupCourse, gName));
+                const activeGroupMetrics = scopedMetricsList.filter(m => m.total > 0);
+                const avgPct = pieItem ? pieItem.avg : (activeGroupMetrics.length > 0 ? Math.round(activeGroupMetrics.reduce((acc, m) => acc + m.pct, 0) / activeGroupMetrics.length) : 0);
+                const truantCount = scopedMetricsList.filter(m => m.total > 0 && m.pct < 40).length;
                 const isSelected = matchGroup(selectedGroup || groups[0], gName);
 
                 return (
@@ -2867,8 +3206,14 @@ export default function LecturerDashboard() {
 
               const activeGroupName = selectedGroup || groups[0] || "No Group";
               const groupStudentsList = students.filter(s => studentInGroup(s, activeGroupName));
-              const truantStudentsList = groupStudentsList.filter(s => (s.total || 0) > 0 && s.pct < 40);
-              const punctualStudentsList = groupStudentsList.filter(s => (s.total || 0) > 0 && s.pct >= 40);
+              const truantStudentsList = groupStudentsList.filter(s => {
+                const m = getStudentScopedMetrics(s, selectedGroupCourse, activeGroupName);
+                return m.total > 0 && m.pct < 40;
+              });
+              const punctualStudentsList = groupStudentsList.filter(s => {
+                const m = getStudentScopedMetrics(s, selectedGroupCourse, activeGroupName);
+                return m.total > 0 && m.pct >= 40;
+              });
 
               let displayedGroupStudents = groupStudentsList;
               if (groupStudentFilter === "punctual") {
@@ -2878,7 +3223,11 @@ export default function LecturerDashboard() {
               }
 
               // Sort: High attendance rate first, no-sessions/low at the bottom
-              const sortedGroupStudents = [...displayedGroupStudents].sort((a, b) => ((b.total > 0 ? b.pct : -1) - (a.total > 0 ? a.pct : -1)));
+              const sortedGroupStudents = [...displayedGroupStudents].sort((a, b) => {
+                const ma = getStudentScopedMetrics(a, selectedGroupCourse, activeGroupName);
+                const mb = getStudentScopedMetrics(b, selectedGroupCourse, activeGroupName);
+                return (mb.total > 0 ? mb.pct : -1) - (ma.total > 0 ? ma.pct : -1);
+              });
 
               return (
                 <div style={{ background: "white", borderRadius: 16, border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)", overflow: "hidden" }}>
@@ -3004,8 +3353,9 @@ export default function LecturerDashboard() {
                         </thead>
                         <tbody>
                           {sortedGroupStudents.map((row, i) => {
-                            const hasSessions = (row.total || 0) > 0;
-                            const isTruant = hasSessions && row.pct < 40;
+                            const m = getStudentScopedMetrics(row, selectedGroupCourse, activeGroupName);
+                            const hasSessions = m.total > 0;
+                            const isTruant = hasSessions && m.pct < 40;
                             return (
                               <tr key={row.id} style={{ background: isTruant ? "#fef2f2" : "white", borderBottom: "1px solid #f1f5f9" }}>
                                 <td style={{ padding: "12px 18px", color: "#94a3b8", fontWeight: 500 }}>{i + 1}</td>
@@ -3013,8 +3363,8 @@ export default function LecturerDashboard() {
                                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                                     <div style={{
                                       width: 32, height: 32, borderRadius: 8,
-                                      background: !hasSessions ? "#f1f5f9" : isTruant ? "#fee2e2" : row.pct >= 75 ? "#dbeafe" : "#fef3c7",
-                                      color: !hasSessions ? "#64748b" : isTruant ? "#dc2626" : row.pct >= 75 ? "#1e40af" : "#d97706",
+                                      background: !hasSessions ? "#f1f5f9" : isTruant ? "#fee2e2" : m.pct >= 75 ? "#dbeafe" : "#fef3c7",
+                                      color: !hasSessions ? "#64748b" : isTruant ? "#dc2626" : m.pct >= 75 ? "#1e40af" : "#d97706",
                                       display: "flex", alignItems: "center", justifyContent: "center",
                                       fontSize: 12, fontWeight: 700, flexShrink: 0
                                     }}>
@@ -3028,9 +3378,9 @@ export default function LecturerDashboard() {
                                 </td>
                                 <td style={{ padding: "12px 18px", color: "#64748b", fontSize: 13, fontWeight: 500, whiteSpace: "nowrap" }}>{row.index}</td>
                                 <td style={{ padding: "12px 18px", fontWeight: 600, color: "#1e293b", whiteSpace: "nowrap" }}>
-                                  {row.attended} / {row.total} sessions
+                                  {m.attended} / {m.total} sessions
                                 </td>
-                                <td style={{ padding: "12px 18px" }}>{pctBadge(row.pct, row.total)}</td>
+                                <td style={{ padding: "12px 18px" }}>{pctBadge(m.pct, m.total)}</td>
                                 <td style={{ padding: "12px 18px", whiteSpace: "nowrap" }}>
                                   {!hasSessions ? (
                                     <span style={{ fontSize: 11, background: "#f1f5f9", color: "#64748b", padding: "3px 10px", borderRadius: 20, fontWeight: 700, border: "1px solid #e2e8f0" }}>
@@ -3040,7 +3390,7 @@ export default function LecturerDashboard() {
                                     <span style={{ fontSize: 11, background: "#fee2e2", color: "#dc2626", padding: "3px 10px", borderRadius: 20, fontWeight: 700, border: "1px solid #fecaca" }}>
                                       ⚠ Truant (&lt;40%)
                                     </span>
-                                  ) : row.pct >= 75 ? (
+                                  ) : m.pct >= 75 ? (
                                     <span style={{ fontSize: 11, background: "#d1fae5", color: "#065f46", padding: "3px 10px", borderRadius: 20, fontWeight: 700, border: "1px solid #a7f3d0" }}>
                                       ✓ Punctual
                                     </span>
@@ -3143,34 +3493,68 @@ export default function LecturerDashboard() {
                         <div style={{ fontSize: 12, color: "#b45309", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, padding: "10px 12px" }}>
                           No students found in this level yet. Switch to <strong>Onboard New Student</strong> or upload your student roster CSV first.
                         </div>
-                      ) : (
-                        <select
-                          value={selectedRepStudentId}
-                          onChange={e => {
-                            const val = e.target.value;
-                            setSelectedRepStudentId(val);
-                            const st = students.find(s => String(s.id) === String(val));
-                            if (st) {
-                              const parts = (st.name || "").trim().split(" ");
-                              setRepFirstName(parts[0] || "");
-                              setRepLastName(parts.slice(1).join(" ") || "");
-                              setRepIndex(st.index || "");
-                              setRepEmail(st.email || (st.index ? `${st.index}@st.uew.edu.gh` : ""));
-                              if (st.group && (!activeRepCourse || String(st.group).toUpperCase().startsWith(activeRepCourse.toUpperCase() + " - "))) {
-                                setRepGroup(st.group);
+                      ) : (() => {
+                        const q = repSearch.trim().toLowerCase();
+                        const filteredRepStudents = q
+                          ? students.filter(s =>
+                              String(s.name || "").toLowerCase().includes(q) ||
+                              String(s.index || "").toLowerCase().includes(q)
+                            )
+                          : students;
+                        return (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                          <div style={{ position: "relative" }}>
+                            <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#94a3b8", pointerEvents: "none" }} />
+                            <input
+                              type="text"
+                              placeholder="Search by Student Name or Index Number..."
+                              value={repSearch}
+                              onChange={e => setRepSearch(e.target.value)}
+                              style={{ width: "100%", padding: "9px 32px 9px 32px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, boxSizing: "border-box", background: "#f8fafc" }}
+                            />
+                            {repSearch && (
+                              <button
+                                type="button"
+                                onClick={() => setRepSearch("")}
+                                style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "#64748b", cursor: "pointer", padding: 2 }}
+                              >
+                                <X size={14} />
+                              </button>
+                            )}
+                          </div>
+                          <select
+                            value={selectedRepStudentId}
+                            onChange={e => {
+                              const val = e.target.value;
+                              setSelectedRepStudentId(val);
+                              const st = students.find(s => String(s.id) === String(val));
+                              if (st) {
+                                const parts = (st.name || "").trim().split(" ");
+                                setRepFirstName(parts[0] || "");
+                                setRepLastName(parts.slice(1).join(" ") || "");
+                                setRepIndex(st.index || "");
+                                setRepEmail(st.email || (st.index ? `${st.index}@st.uew.edu.gh` : ""));
+                                if (st.group && (!activeRepCourse || String(st.group).toUpperCase().startsWith(activeRepCourse.toUpperCase() + " - "))) {
+                                  setRepGroup(st.group);
+                                }
                               }
-                            }
-                          }}
-                          style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, background: "white", fontWeight: 600, color: "#0f172a" }}
-                        >
-                          <option value="">-- Choose a student from your roster --</option>
-                          {students.map(s => (
-                            <option key={s.id} value={s.id}>
-                              {s.name} ({s.index || "No Index"}) — {s.group || "Unassigned"}
+                            }}
+                            style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, background: "white", fontWeight: 600, color: "#0f172a" }}
+                          >
+                            <option value="">
+                              {filteredRepStudents.length === 0
+                                ? "-- No student matches that search --"
+                                : `-- Choose a student (${filteredRepStudents.length} of ${students.length}) --`}
                             </option>
-                          ))}
-                        </select>
-                      )}
+                            {filteredRepStudents.map(s => (
+                              <option key={s.id} value={s.id}>
+                                {s.name} ({s.index || "No Index"}) — {s.group || "Unassigned"}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        );
+                      })()}
                     </div>
                   )}
 
@@ -3560,6 +3944,206 @@ export default function LecturerDashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── SESSION ATTENDANCE LIST & MANUAL MARK MODAL ── */}
+      {viewListSession && (
+        <div
+          onClick={() => setViewListSession(null)}
+          style={{
+            position: "fixed", inset: 0, background: "rgba(15,23,42,0.75)", backdropFilter: "blur(6px)",
+            zIndex: 1050, display: "flex", alignItems: "center", justifyContent: "center", padding: isMobile ? 10 : 20
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: "white", borderRadius: isMobile ? 18 : 22, width: "100%", maxWidth: 820,
+              maxHeight: "92vh", display: "flex", flexDirection: "column", overflow: "hidden",
+              boxShadow: "0 25px 60px rgba(0,0,0,0.35)", animation: "slideUp 0.22s ease"
+            }}
+          >
+            {/* Sticky Mobile-Friendly Header */}
+            <div style={{
+              position: "sticky", top: 0, zIndex: 10,
+              background: "linear-gradient(135deg, #0f172a, #1e3a5f)", color: "white",
+              padding: isMobile ? "14px 16px" : "18px 24px",
+              display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap"
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <button
+                  type="button"
+                  onClick={() => setViewListSession(null)}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 5,
+                    background: "rgba(255,255,255,0.14)", border: "1px solid rgba(255,255,255,0.22)",
+                    borderRadius: 10, padding: "7px 12px", color: "white", fontWeight: 700, fontSize: 12, cursor: "pointer"
+                  }}
+                >
+                  <ArrowLeft size={15} /> Back
+                </button>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: isMobile ? 14 : 16 }}>
+                    Session {viewListSession.id} · {viewListSession.course || "Course"}
+                  </div>
+                  <div style={{ fontSize: 11, color: "#93c5fd", marginTop: 2 }}>
+                    {viewListSession.courseName || "Attendance Roster"} · {viewListSession.date || ""} · {String(viewListSession.status || "closed").toUpperCase()}
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => downloadSessionPDF({ ...viewListSession, students: viewListStudents })}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 5,
+                    background: "#10b981", border: "none", borderRadius: 10,
+                    padding: "7px 12px", color: "white", fontWeight: 700, fontSize: 12, cursor: "pointer"
+                  }}
+                >
+                  <Download size={14} /> {isMobile ? "PDF" : "Download PDF"}
+                </button>
+                <button
+                  type="button"
+                  aria-label="Close session list"
+                  onClick={() => setViewListSession(null)}
+                  style={{
+                    background: "rgba(255,255,255,0.14)", border: "1px solid rgba(255,255,255,0.22)",
+                    borderRadius: 10, width: 34, height: 34, color: "white",
+                    display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer"
+                  }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: isMobile ? 16 : 24, overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: 20 }}>
+              {/* Checked-in Roster Table */}
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
+                  <div style={{ fontWeight: 800, fontSize: 14, color: "#0f172a", display: "flex", alignItems: "center", gap: 8 }}>
+                    <Users size={16} color="#2563eb" /> Attended Students ({viewListStudents.length})
+                  </div>
+                </div>
+
+                {viewListLoading ? (
+                  <div style={{ padding: 36, textAlign: "center", color: "#64748b", fontSize: 13 }}>
+                    Loading attendance list...
+                  </div>
+                ) : viewListStudents.length === 0 ? (
+                  <div style={{ padding: 28, textAlign: "center", background: "#f8fafc", borderRadius: 12, border: "1px solid #e2e8f0", color: "#94a3b8", fontSize: 13 }}>
+                    No students checked in to this session yet.
+                  </div>
+                ) : (
+                  <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", borderRadius: 12, border: "1px solid #e2e8f0" }}>
+                    <table style={{ width: "100%", minWidth: 520, borderCollapse: "collapse", fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ background: "#f8fafc" }}>
+                          {["#", "Student Name", "Index Number", "Receipt Code", "Method", "Time"].map(h => (
+                            <th key={h} style={{ textAlign: "left", padding: "10px 14px", color: "#64748b", fontWeight: 700, fontSize: 11, borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap" }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {viewListStudents.map((st, idx) => (
+                          <tr key={st.id || st.index || idx} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                            <td style={{ padding: "10px 14px", color: "#94a3b8" }}>{idx + 1}</td>
+                            <td style={{ padding: "10px 14px", fontWeight: 600, color: "#0f172a", whiteSpace: "nowrap" }}>{st.name}</td>
+                            <td style={{ padding: "10px 14px", color: "#475569", fontFamily: "monospace", whiteSpace: "nowrap" }}>{st.index}</td>
+                            <td style={{ padding: "10px 14px", whiteSpace: "nowrap" }}>
+                              <span style={{
+                                fontSize: 11, fontWeight: 800, fontFamily: "monospace",
+                                background: st.status === "flagged" ? "#fef3c7" : "#dcfce7",
+                                color: st.status === "flagged" ? "#92400e" : "#15803d",
+                                padding: "2px 8px", borderRadius: 12
+                              }}>
+                                {st.status === "flagged" ? "⚠ Flagged" : (st.receipt_code || "Verified")}
+                              </span>
+                            </td>
+                            <td style={{ padding: "10px 14px", fontSize: 12, color: st.method === "Manual (Lecturer)" ? "#7c3aed" : "#64748b", fontWeight: st.method === "Manual (Lecturer)" ? 700 : 500, whiteSpace: "nowrap" }}>
+                              {st.method || "Session Code"}
+                            </td>
+                            <td style={{ padding: "10px 14px", fontSize: 12, color: "#64748b", whiteSpace: "nowrap" }}>{st.time || "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Lecturer Manual Mark Present Override */}
+              {(() => {
+                const checkedIndexes = new Set(viewListStudents.map(v => String(v.index || "").trim().toUpperCase()));
+                const mq = manualMarkSearch.trim().toLowerCase();
+                const courseCodeStr = String(viewListSession.course || "").trim().toUpperCase();
+                const candidates = (students || []).filter(s => {
+                  if (checkedIndexes.has(String(s.index || "").trim().toUpperCase())) return false;
+                  if (courseCodeStr && !studentEnrolledInCourse(s, courseCodeStr)) return false;
+                  if (!mq) return false;
+                  return String(s.name || "").toLowerCase().includes(mq) || String(s.index || "").toLowerCase().includes(mq);
+                }).slice(0, 12);
+
+                return (
+                  <div style={{ background: "#f8fafc", borderRadius: 14, border: "1px solid #e2e8f0", padding: isMobile ? 14 : 18 }}>
+                    <div style={{ fontWeight: 800, fontSize: 13, color: "#0f172a", display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                      <UserCheck size={15} color="#7c3aed" /> Manual Attendance Override (Lecturer Only)
+                    </div>
+                    <div style={{ fontSize: 12, color: "#64748b", marginBottom: 10 }}>
+                      Search an absent student by name or index number to mark them present (tagged as Manual Lecturer).
+                    </div>
+                    <div style={{ position: "relative" }}>
+                      <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#94a3b8", pointerEvents: "none" }} />
+                      <input
+                        type="text"
+                        placeholder="Type student name or index number to mark present..."
+                        value={manualMarkSearch}
+                        onChange={e => setManualMarkSearch(e.target.value)}
+                        style={{ width: "100%", padding: "10px 12px 10px 32px", borderRadius: 10, border: "1px solid #cbd5e1", background: "white", fontSize: 13, boxSizing: "border-box" }}
+                      />
+                    </div>
+                    {mq && (
+                      <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                        {candidates.length === 0 ? (
+                          <div style={{ fontSize: 12, color: "#94a3b8", padding: "8px 4px" }}>
+                            No unmarked enrolled student matches "{manualMarkSearch}".
+                          </div>
+                        ) : (
+                          candidates.map(st => (
+                            <div key={st.id || st.index} style={{
+                              display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap",
+                              background: "white", borderRadius: 10, padding: "10px 14px", border: "1px solid #e2e8f0"
+                            }}>
+                              <div>
+                                <div style={{ fontWeight: 700, fontSize: 13, color: "#0f172a" }}>{st.name}</div>
+                                <div style={{ fontSize: 11, color: "#64748b", fontFamily: "monospace" }}>{st.index} · {st.group}</div>
+                              </div>
+                              <button
+                                type="button"
+                                disabled={manualMarkingId === (st.id || st.index)}
+                                onClick={() => handleManualMarkPresent(st)}
+                                style={{
+                                  padding: "7px 12px", borderRadius: 8, border: "none",
+                                  background: "#7c3aed", color: "white", fontWeight: 700, fontSize: 12,
+                                  cursor: manualMarkingId === (st.id || st.index) ? "wait" : "pointer",
+                                  display: "inline-flex", alignItems: "center", gap: 5
+                                }}
+                              >
+                                <Check size={13} /> {manualMarkingId === (st.id || st.index) ? "Marking..." : "Mark Present"}
+                              </button>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
           </div>
         </div>
       )}

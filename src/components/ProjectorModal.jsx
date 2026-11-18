@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, Maximize2, Minimize2, Clock, ShieldCheck, Sparkles, RefreshCw } from 'lucide-react';
-import { getRotatingSessionState } from '../utils/sessionCode';
+import React, { useState, useEffect, useCallback } from 'react';
+import { X, Maximize2, Minimize2, Clock, ShieldCheck, RefreshCw, ArrowLeft } from 'lucide-react';
 
 function QRVisual({ code, size = 320 }) {
   const [imgError, setImgError] = useState(false);
@@ -62,6 +61,21 @@ export default function ProjectorModal({
   sessionCountdown = 0,
 }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' ? window.innerWidth <= 768 : false);
+
+  const handleSafeClose = useCallback(() => {
+    if (document.fullscreenElement && document.exitFullscreen) {
+      document.exitFullscreen().catch(() => {});
+    }
+    if (onClose) onClose();
+  }, [onClose]);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)');
+    const onResize = (e) => setIsMobile(e.matches);
+    mq.addEventListener('change', onResize);
+    return () => mq.removeEventListener('change', onResize);
+  }, []);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -70,6 +84,21 @@ export default function ProjectorModal({
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') handleSafeClose();
+    };
+    window.history.pushState({ modal: 'projector' }, '');
+    const onPopState = () => handleSafeClose();
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('popstate', onPopState);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('popstate', onPopState);
+    };
+  }, [isOpen, handleSafeClose]);
 
   if (!isOpen) return null;
 
@@ -106,54 +135,81 @@ export default function ProjectorModal({
       color: '#f8fafc',
       fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif",
       userSelect: 'none',
-      overflow: 'hidden'
+      overflowY: 'auto',
+      overflowX: 'hidden'
     }}>
-      {/* ── PROJECTOR TOP BAR ── */}
+      {/* ── STICKY PROJECTOR TOP BAR (Always visible Back / Close on Mobile & Desktop) ── */}
       <div style={{
-        padding: '16px 32px',
+        position: 'sticky',
+        top: 0,
+        zIndex: 10,
+        padding: isMobile ? '12px 14px' : '16px 32px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: 10,
         borderBottom: '1px solid rgba(255,255,255,0.08)',
-        background: 'rgba(3, 16, 29, 0.6)',
+        background: 'rgba(3, 16, 29, 0.92)',
         backdropFilter: 'blur(12px)'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div style={{
-            background: 'linear-gradient(135deg, #2563eb, #38bdf8)',
-            color: 'white',
-            padding: '6px 14px',
-            borderRadius: 10,
-            fontWeight: 800,
-            fontSize: 14,
-            letterSpacing: 1
-          }}>
-            PROJECTOR MODE
-          </div>
-          <div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: 'white', letterSpacing: 0.5 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+          <button
+            onClick={handleSafeClose}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              background: 'rgba(255,255,255,0.12)',
+              border: '1px solid rgba(255,255,255,0.2)',
+              color: '#f8fafc',
+              padding: isMobile ? '7px 12px' : '7px 14px',
+              borderRadius: 10,
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: 'pointer',
+              flexShrink: 0
+            }}
+          >
+            <ArrowLeft size={16} /> Back
+          </button>
+          {!isMobile && (
+            <div style={{
+              background: 'linear-gradient(135deg, #2563eb, #38bdf8)',
+              color: 'white',
+              padding: '6px 14px',
+              borderRadius: 10,
+              fontWeight: 800,
+              fontSize: 14,
+              letterSpacing: 1
+            }}>
+              PROJECTOR MODE
+            </div>
+          )}
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: isMobile ? 14 : 18, fontWeight: 800, color: 'white', letterSpacing: 0.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: isMobile ? 'nowrap' : 'normal', maxWidth: isMobile ? 190 : 'none' }}>
               {courseCode || 'COURSE'} — {courseName || 'Live Attendance Session'}
             </div>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 14, flexWrap: 'wrap' }}>
           {/* Working Session Duration Countdown */}
           {sessionCountdown > 0 && (
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              gap: 8,
+              gap: 6,
               background: 'rgba(56, 189, 248, 0.12)',
               border: '1px solid rgba(56, 189, 248, 0.3)',
               color: '#38bdf8',
-              padding: '8px 18px',
+              padding: isMobile ? '6px 12px' : '8px 18px',
               borderRadius: 30,
-              fontSize: 14,
+              fontSize: isMobile ? 12 : 14,
               fontWeight: 700
             }}>
-              <Clock size={16} />
-              <span>Session Closes In: <strong>{fmtSessionTimer(sessionCountdown)}</strong></span>
+              <Clock size={14} />
+              <span>{isMobile ? fmtSessionTimer(sessionCountdown) : <>Session Closes In: <strong>{fmtSessionTimer(sessionCountdown)}</strong></>}</span>
             </div>
           )}
 
@@ -167,23 +223,24 @@ export default function ProjectorModal({
               background: 'rgba(255,255,255,0.08)',
               border: '1px solid rgba(255,255,255,0.15)',
               color: 'white',
-              padding: '8px 16px',
+              padding: isMobile ? '7px 11px' : '8px 16px',
               borderRadius: 10,
-              fontSize: 13,
+              fontSize: isMobile ? 12 : 13,
               fontWeight: 600,
               cursor: 'pointer'
             }}
           >
-            {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-            {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+            {isFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+            {!isMobile && (isFullscreen ? 'Exit Fullscreen' : 'Fullscreen')}
           </button>
 
           {/* Close Modal */}
           <button
-            onClick={onClose}
+            onClick={handleSafeClose}
+            aria-label="Close projector"
             style={{
-              width: 38,
-              height: 38,
+              width: 36,
+              height: 36,
               borderRadius: 10,
               background: 'rgba(239, 68, 68, 0.2)',
               border: '1px solid rgba(239, 68, 68, 0.4)',
@@ -194,7 +251,7 @@ export default function ProjectorModal({
               cursor: 'pointer'
             }}
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
       </div>
@@ -257,16 +314,17 @@ export default function ProjectorModal({
         {/* Crisp Giant High-Contrast QR Code */}
         <div style={{
           background: '#ffffff',
-          padding: 24,
-          borderRadius: 28,
+          padding: isMobile ? 14 : 24,
+          borderRadius: isMobile ? 20 : 28,
           boxShadow: '0 20px 60px rgba(0,0,0,0.7), 0 0 40px rgba(56, 189, 248, 0.25)',
           border: '6px solid #38bdf8',
           display: 'inline-block',
-          position: 'relative'
+          position: 'relative',
+          maxWidth: '90vw'
         }}>
           <QRVisual
             code={displayCode}
-            size={310}
+            size={isMobile ? Math.min(230, (typeof window !== 'undefined' ? window.innerWidth : 360) - 96) : 310}
           />
         </div>
 

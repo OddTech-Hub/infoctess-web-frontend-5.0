@@ -5,11 +5,13 @@ import {
   QrCode, Users, Trash2, Plus, Eye, Clock, CheckCircle,
   LayoutDashboard, LogOut, PanelLeftClose, PanelLeftOpen,
   GraduationCap, ChevronDown, X, Smartphone, Hash,
-  UserCheck, AlertCircle, Wifi, Shield, Download, FileText
-, Maximize2} from "lucide-react";
+  UserCheck, AlertCircle, Wifi, Shield, Download, FileText,
+  Maximize2, User, ArrowLeft, PlusCircle, BookOpen
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { request } from "../api/client";
 import { getRotatingSessionState } from "../utils/sessionCode";
+import { getDeviceInfo } from "../utils/deviceUtils";
 
 // ─── QR VISUAL ───────────────────────────────────────────────────────────────
 
@@ -300,6 +302,10 @@ export default function CourseRepDashboard() {
   // Rep user details
   const [repName, setRepName]     = useState("Course Representative");
   const [repEmail, setRepEmail]   = useState("");
+  const [repIndexNumber, setRepIndexNumber] = useState("");
+  const [repDeviceName, setRepDeviceName] = useState("");
+  const [repDeviceId, setRepDeviceId] = useState("");
+  const [repAssignments, setRepAssignments] = useState([]);
 
   // Active session state
   const [activeSession, setActiveSession] = useState(null);
@@ -311,6 +317,7 @@ export default function CourseRepDashboard() {
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showProjector, setShowProjector] = useState(false);
   const [sessionCountdown, setSessionCountdown] = useState(0);
+  const [extendingSession, setExtendingSession] = useState(false);
 
   // Delete confirm
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -321,6 +328,7 @@ export default function CourseRepDashboard() {
   const [loadingStudents, setLoadingStudents] = useState(false);
 
   const timerRef = useRef(null);
+  const hasAutoOpenedModalRef = useRef(false);
 
   const getInitials = (name) => {
     return name ? name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() : "CR";
@@ -340,7 +348,8 @@ export default function CourseRepDashboard() {
           timeWindow: s.timeWindow || s.time_window || 10,
           status: s.status || "active",
           checkins: typeof s.checkins === "number" ? s.checkins : (s.students ? s.students.length : 0),
-          students: s.students || []
+          students: s.students || [],
+          remainingSeconds: typeof s.remaining_seconds === "number" ? s.remaining_seconds : null,
         }));
 
         setSessions(formattedSessions);
@@ -351,20 +360,38 @@ export default function CourseRepDashboard() {
           const resDet = await request(`/api/sessions/${activeId}/`);
           const jsonDet = await resDet.json();
           let studentsList = [];
+          let remSecs = typeof active.remaining_seconds === "number"
+            ? active.remaining_seconds
+            : (active.timeWindow || active.time_window || 10) * 60;
+          let activeTw = active.timeWindow || active.time_window || 10;
 
           if (jsonDet.success && jsonDet.data) {
             const dataObj = jsonDet.data;
+            if (typeof dataObj.remaining_seconds === "number") {
+              remSecs = dataObj.remaining_seconds;
+            }
+            if (dataObj.timeWindow || dataObj.time_window) {
+              activeTw = dataObj.timeWindow || dataObj.time_window;
+            }
             if (Array.isArray(dataObj.students)) {
               studentsList = dataObj.students;
             } else if (Array.isArray(dataObj.records)) {
               studentsList = dataObj.records.map(c => ({
                 name: c.student ? `${c.student.first_name} ${c.student.last_name}` : (c.name || "Student"),
                 index: c.student ? c.student.index_number : (c.index || ""),
-                method: c.method === "qr_code" ? "QR Code" : "Session Code",
+                method: c.method === "qr_code" ? "QR Code" : (c.method === "manual_lecturer" ? "Manual (Lecturer)" : "Session Code"),
                 time: c.checked_in_at ? new Date(c.checked_in_at).toLocaleTimeString() : (c.time || "Just now"),
                 avatar: getInitials(c.student ? `${c.student.first_name} ${c.student.last_name}` : (c.name || "ST"))
               }));
             }
+          }
+
+          if (remSecs <= 0) {
+            hasAutoOpenedModalRef.current = false;
+            setActiveSession(null);
+            setSessionCountdown(0);
+            setShowModal(false);
+            return;
           }
 
           setActiveSession({
@@ -374,14 +401,20 @@ export default function CourseRepDashboard() {
             date: active.date || new Date().toLocaleDateString(),
             checkins: studentsList.length,
             status: active.status,
-            timeWindow: active.timeWindow || active.time_window || 10,
+            timeWindow: activeTw,
             students: studentsList,
-            countdown: (active.timeWindow || 10) * 60
+            countdown: remSecs
           });
-          setSessionCountdown((active.timeWindow || 10) * 60);
-          setShowModal(true);
+          setSessionCountdown(remSecs);
+          if (!hasAutoOpenedModalRef.current) {
+            hasAutoOpenedModalRef.current = true;
+            setShowModal(true);
+          }
         } else {
+          hasAutoOpenedModalRef.current = false;
           setActiveSession(null);
+          setSessionCountdown(0);
+          setShowModal(false);
         }
       }
     } catch (err) {
@@ -451,9 +484,11 @@ export default function CourseRepDashboard() {
     async function init() {
       setLoading(true);
       try {
-        const [res, grpRes] = await Promise.all([
+        const [res, grpRes, meRes, repRes] = await Promise.all([
           request("/api/courses/"),
-          request("/api/groups/").catch(() => null)
+          request("/api/groups/").catch(() => null),
+          request("/api/auth/me/").catch(() => null),
+          request("/api/course-reps/").catch(() => null),
         ]);
         if (res.status === 401) {
           sessionStorage.clear();
@@ -469,6 +504,25 @@ export default function CourseRepDashboard() {
           const grpJson = await grpRes.json();
           if (grpJson.success && Array.isArray(grpJson.data)) {
             setAssignedGroups(grpJson.data);
+          }
+        }
+        if (meRes && meRes.ok) {
+          const meJson = await meRes.json();
+          if (meJson.success && meJson.data) {
+            const u = meJson.data;
+            const fullName = `${u.first_name || ""} ${u.last_name || ""}`.trim();
+            if (fullName) setRepName(fullName);
+            if (u.email) setRepEmail(u.email);
+            setRepIndexNumber(u.index_number || u.username || "");
+            setRepDeviceName(u.device_name || "");
+            setRepDeviceId(u.device_id || "");
+            sessionStorage.setItem("web_user", JSON.stringify(u));
+          }
+        }
+        if (repRes && repRes.ok) {
+          const repJson = await repRes.json();
+          if (repJson.success && Array.isArray(repJson.data)) {
+            setRepAssignments(repJson.data);
           }
         }
         await fetchSessions();
@@ -489,13 +543,55 @@ export default function CourseRepDashboard() {
   }, [tab, fetchCheckedInStudents]);
 
   // ── SESSION DURATION COUNTDOWN TIMER ──
+  const activeSessionId = activeSession?.id || null;
   useEffect(() => {
-    if (!activeSession || sessionCountdown <= 0) return;
+    if (!activeSessionId) return;
     const durTimer = setInterval(() => {
-      setSessionCountdown(c => (c > 1 ? c - 1 : 0));
+      setSessionCountdown(c => {
+        if (c <= 1) {
+          setTimeout(() => fetchSessions(), 800);
+          return 0;
+        }
+        return c - 1;
+      });
     }, 1000);
     return () => clearInterval(durTimer);
-  }, [activeSession, sessionCountdown]);
+  }, [activeSessionId, fetchSessions]);
+
+  // ── MOBILE BACK / ESCAPE FOR REP MODALS ──
+  useEffect(() => {
+    if (showProjector) return;
+    const anyModalOpen = showModal || showConfigModal;
+    if (!anyModalOpen) return;
+
+    let pushedHistory = false;
+    try {
+      window.history.pushState({ repModal: true }, '');
+      pushedHistory = true;
+    } catch (e) { /* ignore */ }
+
+    const handleKey = (e) => {
+      if (e.key === "Escape") {
+        setShowModal(false);
+        setShowConfigModal(false);
+      }
+    };
+    const handlePop = () => {
+      pushedHistory = false;
+      setShowModal(false);
+      setShowConfigModal(false);
+    };
+
+    window.addEventListener("keydown", handleKey);
+    window.addEventListener("popstate", handlePop);
+    return () => {
+      window.removeEventListener("keydown", handleKey);
+      window.removeEventListener("popstate", handlePop);
+      if (pushedHistory && window.history.state?.repModal) {
+        try { window.history.back(); } catch (e) { /* ignore */ }
+      }
+    };
+  }, [showModal, showConfigModal, showProjector]);
 
   // ── 90-SECOND ROTATING SESSION CODE TIMER ──
   useEffect(() => {
@@ -530,9 +626,39 @@ export default function CourseRepDashboard() {
         console.error(e);
       }
     }
+    hasAutoOpenedModalRef.current = false;
     setActiveSession(null);
+    setSessionCountdown(0);
     setShowModal(false);
     fetchSessions();
+  };
+
+  const handleExtendSession = async (minutes = 5) => {
+    if (!activeSession || extendingSession) return;
+    setExtendingSession(true);
+    try {
+      const res = await request(`/api/sessions/${activeSession.id}/extend/`, {
+        method: "POST",
+        body: JSON.stringify({ minutes })
+      });
+      const json = await res.json();
+      if (res.ok && json.success && json.data) {
+        if (typeof json.data.remaining_seconds === "number") {
+          setSessionCountdown(json.data.remaining_seconds);
+        }
+        setActiveSession(prev => prev ? {
+          ...prev,
+          timeWindow: json.data.timeWindow || (prev.timeWindow + minutes)
+        } : prev);
+        fetchSessions();
+      } else {
+        alert(json.message || "Could not extend session.");
+      }
+    } catch (e) {
+      alert("Failed to extend session: " + e.message);
+    } finally {
+      setExtendingSession(false);
+    }
   };
 
   const getClassroomCoords = () => new Promise((resolve) => {
@@ -540,7 +666,7 @@ export default function CourseRepDashboard() {
     navigator.geolocation.getCurrentPosition(
       (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
       () => resolve(null),
-      { enableHighAccuracy: true, timeout: 3500, maximumAge: 60000 }
+      { enableHighAccuracy: true, timeout: 6000, maximumAge: 30000 }
     );
   });
 
@@ -548,17 +674,19 @@ export default function CourseRepDashboard() {
     if (!selectedCourse) { alert("No course assigned. Contact your lecturer or administrator."); return; }
     try {
       const coords = await getClassroomCoords();
+      if (!coords) {
+        alert("Unable to detect your lecture hall GPS location. Please turn on Location / GPS on your device and allow browser location permission before starting an attendance session.");
+        return;
+      }
       const payload = {
         course_id: selectedCourse,
         time_window: parseInt(timeWindow) || 10,
-        allowed_radius: parseInt(allowedRadius) || 50
+        allowed_radius: parseInt(allowedRadius) || 50,
+        latitude: coords.lat,
+        longitude: coords.lng
       };
       if (matchedAssignedGroup?.id) {
         payload.group_id = matchedAssignedGroup.id;
-      }
-      if (coords) {
-        payload.latitude = coords.lat;
-        payload.longitude = coords.lng;
       }
       const res = await request("/api/sessions/create/", {
         method: "POST",
@@ -571,6 +699,10 @@ export default function CourseRepDashboard() {
         throw new Error(`Server returned HTTP ${res.status}`);
       }
       if (res.ok && json.success) {
+        const initRem = typeof json.data.remaining_seconds === "number"
+          ? json.data.remaining_seconds
+          : (parseInt(timeWindow) || 10) * 60;
+        hasAutoOpenedModalRef.current = true;
         setActiveSession({
           id: json.data.id,
           course: selectedCourse,
@@ -578,11 +710,11 @@ export default function CourseRepDashboard() {
           date: new Date().toLocaleDateString(),
           checkins: 0,
           status: "active",
-          timeWindow: parseInt(timeWindow),
+          timeWindow: parseInt(timeWindow) || 10,
           students: [],
-          countdown: parseInt(timeWindow) * 60
+          countdown: initRem
         });
-        setSessionCountdown(parseInt(timeWindow) * 60);
+        setSessionCountdown(initRem);
         setShowModal(true);
         fetchSessions();
       } else {
@@ -646,6 +778,7 @@ export default function CourseRepDashboard() {
             { id: "projection", label: "Session Projector", icon: Maximize2 },
             { id: "sessions", label: "Sessions", icon: QrCode },
             { id: "students", label: "Students Roster", icon: Users },
+            { id: "profile", label: "My Profile", icon: User },
           ].map(item => {
             const Icon = item.icon;
             const active = tab === item.id;
@@ -738,6 +871,55 @@ export default function CourseRepDashboard() {
             </button>
           </div>
         </header>
+
+        {/* LIVE SESSION BANNER (quick reopen / extend / end from any tab) */}
+        {activeSession && (
+          <div style={{
+            background: "linear-gradient(135deg, #0f172a, #1e3a5f)",
+            color: "white", borderRadius: 16, padding: isMobile ? "14px 16px" : "16px 22px",
+            marginBottom: isMobile ? 16 : 24, display: "flex", alignItems: "center",
+            justifyContent: "space-between", flexWrap: "wrap", gap: 12,
+            boxShadow: "0 6px 20px rgba(15,23,42,0.16)"
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#4ade80", flexShrink: 0 }} />
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 800 }}>
+                  Live Session: {activeSession.id} · {activeSession.course}
+                </div>
+                <div style={{ fontSize: 12, color: "#93c5fd", marginTop: 2 }}>
+                  Time left: <strong>{fmtTime(sessionCountdown)}</strong> · {activeSession.checkins || 0} checked in
+                </div>
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                onClick={() => setShowModal(true)}
+                style={{
+                  padding: "8px 14px", borderRadius: 10, border: "none",
+                  background: "#2563eb", color: "white", fontWeight: 700, fontSize: 12, cursor: "pointer",
+                  display: "inline-flex", alignItems: "center", gap: 6
+                }}
+              >
+                <QrCode size={14} /> View Live QR
+              </button>
+              <button
+                type="button"
+                disabled={extendingSession}
+                onClick={() => handleExtendSession(5)}
+                style={{
+                  padding: "8px 12px", borderRadius: 10, border: "1px solid rgba(56,189,248,0.45)",
+                  background: "rgba(56,189,248,0.14)", color: "#e0f2fe", fontWeight: 700, fontSize: 12,
+                  cursor: extendingSession ? "wait" : "pointer",
+                  display: "inline-flex", alignItems: "center", gap: 5
+                }}
+              >
+                <PlusCircle size={14} /> {extendingSession ? "Extending..." : "Extend +5m"}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* SUMMARY CARDS */}
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(auto-fit, minmax(150px, 1fr))" : "repeat(auto-fit, minmax(220px, 1fr))", gap: isMobile ? 12 : 16, marginBottom: isMobile ? 20 : 28 }}>
@@ -887,25 +1069,152 @@ export default function CourseRepDashboard() {
             )}
           </div>
         )}
+
+        {tab === "profile" && (() => {
+          const { deviceId: localDevId, deviceName: localDevName } = getDeviceInfo();
+          const displayedDeviceName = repDeviceName || localDevName || "Current Device";
+          const displayedDeviceId = repDeviceId || localDevId || "Not registered yet";
+          const assignmentsList = repAssignments.length > 0
+            ? repAssignments
+            : assignedGroups.map((g, idx) => ({
+                id: g.id || idx,
+                course_code: g.course?.code || selectedCourse || "N/A",
+                course_name: g.course?.name || "",
+                group_name: g.display_name || g.name || "Group 1",
+                created_by: "Lecturer"
+              }));
+
+          return (
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              {/* Profile Header Card */}
+              <div style={{ background: "white", borderRadius: 16, border: "1px solid #e2e8f0", padding: isMobile ? 18 : 24 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+                  <Avatar initials={getInitials(repName)} size={isMobile ? 54 : 64} />
+                  <div style={{ flex: 1, minWidth: 200 }}>
+                    <h2 style={{ fontSize: isMobile ? 18 : 22, fontWeight: 800, color: "#0f172a", margin: 0 }}>{repName}</h2>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#2563eb", marginTop: 4 }}>
+                      COURSE REPRESENTATIVE · {repIndexNumber || "Index Not Set"}
+                    </div>
+                    <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>{repEmail || "No email on record"}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 20 }}>
+                {/* Assigned Course & Group */}
+                <div style={{ background: "white", borderRadius: 16, border: "1px solid #e2e8f0", padding: isMobile ? 18 : 24 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                    <BookOpen size={18} color="#2563eb" />
+                    <h3 style={{ fontSize: 15, fontWeight: 800, color: "#0f172a", margin: 0 }}>Assigned Course &amp; Group</h3>
+                  </div>
+                  {assignmentsList.length === 0 ? (
+                    <div style={{ fontSize: 13, color: "#64748b", padding: "14px 16px", background: "#f8fafc", borderRadius: 12 }}>
+                      No course assignment recorded yet.
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      {assignmentsList.map((a, idx) => (
+                        <div key={a.id || idx} style={{
+                          padding: "12px 14px", borderRadius: 12, background: "#f8fafc",
+                          border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", gap: 4
+                        }}>
+                          <div style={{ fontSize: 13, fontWeight: 800, color: "#1d4ed8" }}>
+                            {a.course_code}{a.course_name ? ` — ${a.course_name}` : ""}
+                          </div>
+                          <div style={{ fontSize: 12, color: "#334155", fontWeight: 600 }}>
+                            Group: <span style={{ color: "#0f172a" }}>{a.group_name}</span>
+                          </div>
+                          <div style={{ fontSize: 11, color: "#64748b" }}>
+                            Appointed by: <strong>{a.created_by || "Lecturer"}</strong>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Registered Device */}
+                <div style={{ background: "white", borderRadius: 16, border: "1px solid #e2e8f0", padding: isMobile ? 18 : 24 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                    <Smartphone size={18} color="#16a34a" />
+                    <h3 style={{ fontSize: 15, fontWeight: 800, color: "#0f172a", margin: 0 }}>Registered Device</h3>
+                  </div>
+                  <div style={{ padding: "14px 16px", borderRadius: 12, background: "#f8fafc", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Device Name</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", marginTop: 2 }}>{displayedDeviceName}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Hardware Binding ID</div>
+                      <div style={{ fontSize: 12, fontFamily: "monospace", color: "#334155", marginTop: 2, wordBreak: "break-all" }}>
+                        {displayedDeviceId}
+                      </div>
+                    </div>
+                    <div style={{
+                      marginTop: 4, display: "inline-flex", alignItems: "center", gap: 6, width: "fit-content",
+                      padding: "4px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700,
+                      background: repDeviceId ? "#dcfce7" : "#fef3c7",
+                      color: repDeviceId ? "#15803d" : "#92400e"
+                    }}>
+                      <Shield size={12} />
+                      {repDeviceId ? "Verified & Bound to Account" : "Using Current Browser Fingerprint"}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </main>
 
             {/* SESSION PARAMETERS CONFIG MODAL (Duration up to 100m & Geofence Slider) */}
       {showConfigModal && (
-        <div style={{
-          position: "fixed", inset: 0, background: "rgba(15,23,42,0.65)", backdropFilter: "blur(4px)",
-          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 110, padding: 20
-        }}>
-          <div style={{
-            background: "white", borderRadius: 20, padding: 28, width: 480, maxWidth: "95%",
-            boxShadow: "0 20px 40px rgba(0,0,0,0.2)", display: "flex", flexDirection: "column", gap: 20
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div>
-                <h3 style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", margin: 0 }}>Attendance Session Controls</h3>
-                <p style={{ fontSize: 12, color: "#64748b", margin: "4px 0 0" }}>Adjust duration and geofence radius for your lecture hall</p>
-              </div>
-              <button onClick={() => setShowConfigModal(false)} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#94a3b8" }}>✕</button>
+        <div
+          onClick={() => setShowConfigModal(false)}
+          style={{
+            position: "fixed", inset: 0, background: "rgba(15,23,42,0.65)", backdropFilter: "blur(4px)",
+            display: "flex", alignItems: "center", justifyContent: "center", zIndex: 110, padding: isMobile ? 12 : 20
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: "white", borderRadius: 20, padding: isMobile ? 18 : 28, width: 480, maxWidth: "100%",
+              maxHeight: "92vh", overflowY: "auto",
+              boxShadow: "0 20px 40px rgba(0,0,0,0.2)", display: "flex", flexDirection: "column", gap: 18
+            }}
+          >
+            <div style={{
+              position: "sticky", top: 0, background: "white", zIndex: 5,
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+              paddingBottom: 10, borderBottom: "1px solid #f1f5f9"
+            }}>
+              <button
+                type="button"
+                onClick={() => setShowConfigModal(false)}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  padding: "7px 12px", borderRadius: 10, background: "#f1f5f9",
+                  border: "1px solid #cbd5e1", color: "#0f172a", fontWeight: 700, fontSize: 12, cursor: "pointer"
+                }}
+              >
+                <ArrowLeft size={15} /> Back
+              </button>
+              <h3 style={{ fontSize: isMobile ? 15 : 17, fontWeight: 800, color: "#0f172a", margin: 0 }}>Session Controls</h3>
+              <button
+                type="button"
+                aria-label="Close"
+                onClick={() => setShowConfigModal(false)}
+                style={{
+                  width: 34, height: 34, borderRadius: 10, background: "#f1f5f9",
+                  border: "1px solid #cbd5e1", color: "#475569", cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center"
+                }}
+              >
+                <X size={16} />
+              </button>
             </div>
+            <p style={{ fontSize: 12, color: "#64748b", margin: "-8px 0 0" }}>Adjust duration and geofence radius for your lecture hall</p>
 
             {/* Course Selector */}
             <div>
@@ -1009,16 +1318,59 @@ export default function CourseRepDashboard() {
 
       {/* ACTIVE QR MODAL WITH REAL-TIME CHECKIN FEED & PDF EXPORT */}
       {showModal && activeSession && (
-        <div style={{
-          position: "fixed", inset: 0, background: "rgba(15,23,42,0.7)", backdropFilter: "blur(6px)",
-          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: isMobile ? 12 : 20
-        }}>
-          <div style={{
-            background: "white", borderRadius: isMobile ? 18 : 24, padding: isMobile ? 18 : 32, width: 840, maxWidth: "100%",
-            maxHeight: "92vh", overflowY: "auto",
-            boxShadow: "0 25px 50px -12px rgba(0,0,0,0.3)",
-            display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1.2fr", gap: isMobile ? 22 : 32
-          }}>
+        <div
+          onClick={() => setShowModal(false)}
+          style={{
+            position: "fixed", inset: 0, background: "rgba(15,23,42,0.7)", backdropFilter: "blur(6px)",
+            display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: isMobile ? 10 : 20
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: "white", borderRadius: isMobile ? 18 : 24, padding: isMobile ? 16 : 28, width: 840, maxWidth: "100%",
+              maxHeight: "92vh", overflowY: "auto",
+              boxShadow: "0 25px 50px -12px rgba(0,0,0,0.3)",
+              display: "flex", flexDirection: "column", gap: isMobile ? 16 : 20
+            }}
+          >
+            {/* STICKY MOBILE-SAFE MODAL HEADER */}
+            <div style={{
+              position: "sticky", top: 0, zIndex: 10, background: "white",
+              display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10,
+              paddingBottom: 12, borderBottom: "1px solid #f1f5f9"
+            }}>
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  padding: "7px 12px", borderRadius: 10, background: "#f1f5f9",
+                  border: "1px solid #cbd5e1", color: "#0f172a", fontWeight: 700, fontSize: 12, cursor: "pointer"
+                }}
+              >
+                <ArrowLeft size={15} /> Back to Dashboard
+              </button>
+              <div style={{ fontSize: 12, fontWeight: 800, color: sessionCountdown <= 60 ? "#ef4444" : "#2563eb", display: "flex", alignItems: "center", gap: 5 }}>
+                <Clock size={14} /> {fmtTime(sessionCountdown)} left
+              </div>
+              <button
+                type="button"
+                aria-label="Close session view"
+                onClick={() => setShowModal(false)}
+                style={{
+                  width: 34, height: 34, borderRadius: 10, background: "#f1f5f9",
+                  border: "1px solid #cbd5e1", color: "#475569", cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center"
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div style={{
+              display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1.2fr", gap: isMobile ? 22 : 32
+            }}>
             {/* LEFT COLUMN: QR CODE & CONTROLS */}
             <div style={{
               display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center",
@@ -1032,9 +1384,18 @@ export default function CourseRepDashboard() {
                   <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#16a34a", animation: "pulse 1.5s infinite" }} />
                   REAL-TIME LIVE
                 </div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#64748b", display: "flex", alignItems: "center", gap: 4 }}>
-                  <Clock size={14} /> {activeSession.countdown ? fmtTime(activeSession.countdown) : "Active"}
-                </div>
+                <button
+                  type="button"
+                  disabled={extendingSession}
+                  onClick={() => handleExtendSession(5)}
+                  style={{
+                    padding: "5px 10px", borderRadius: 20, background: "#eff6ff",
+                    color: "#1d4ed8", border: "1px solid #bfdbfe", fontSize: 11, fontWeight: 800,
+                    cursor: extendingSession ? "wait" : "pointer", display: "inline-flex", alignItems: "center", gap: 4
+                  }}
+                >
+                  <PlusCircle size={13} /> {extendingSession ? "..." : "+5 min"}
+                </button>
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 6 }}>
@@ -1153,6 +1514,7 @@ export default function CourseRepDashboard() {
                   </div>
                 )}
               </div>
+            </div>
             </div>
           </div>
         </div>

@@ -27,10 +27,10 @@ export default function SecurityCheckModal({
     if (validationError || validationStatus === 'error') {
       const msg = validationError || 'Verification failed. Please check the active session code and try again.';
       const errLower = msg.toLowerCase();
-      if (errLower.includes('location') || errLower.includes('distance') || errLower.includes('radius') || errLower.includes('geofence') || errLower.includes('gps')) {
-        setFailedStep(1);
-      } else if (errLower.includes('invalid') || errLower.includes('expired') || errLower.includes('token') || errLower.includes('code') || errLower.includes('session')) {
+      if (errLower.includes('lecture hall') || errLower.includes('location') || errLower.includes('distance') || errLower.includes('radius') || errLower.includes('geofence') || errLower.includes('gps')) {
         setFailedStep(2);
+      } else if (errLower.includes('invalid') || errLower.includes('expired') || errLower.includes('token') || errLower.includes('code') || errLower.includes('session') || errLower.includes('enrolled')) {
+        setFailedStep(1);
       } else {
         setFailedStep(3);
       }
@@ -40,39 +40,44 @@ export default function SecurityCheckModal({
 
     setFailedStep(null);
     setErrorMessage('');
-    const t1 = setTimeout(() => setCurrentStep(prev => Math.max(prev, 2)), 300);
-    const t2 = setTimeout(() => setCurrentStep(prev => Math.max(prev, 3)), 650);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-    };
+    if (validationStatus === 'checking') {
+      setCurrentStep(1);
+    }
   }, [isOpen, validationError, validationStatus]);
 
   useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape' && failedStep && onClose) onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [failedStep, onClose]);
+
+  useEffect(() => {
     if (!isOpen || failedStep) return;
-    if (currentStep >= 3 && (validationStatus === 'passed' || validationStatus === 'flagged')) {
+    if (validationStatus === 'passed' || validationStatus === 'flagged') {
       setCurrentStep(4);
       const doneTimer = setTimeout(() => {
         if (onSuccessComplete) onSuccessComplete();
-      }, 350);
+      }, 450);
       return () => clearTimeout(doneTimer);
     }
-  }, [isOpen, currentStep, validationStatus, failedStep, onSuccessComplete]);
+  }, [isOpen, validationStatus, failedStep, onSuccessComplete]);
 
   if (!isOpen) return null;
 
   const stepsConfig = [
     {
       id: 1,
-      title: 'Geofencing & Classroom Range',
-      desc: 'Validating GPS distance within lecture room perimeter',
-      icon: MapPin,
+      title: 'Active Session & Dynamic Token',
+      desc: 'Validating code against an open Lecturer or Course Rep session',
+      icon: Clock,
     },
     {
       id: 2,
-      title: '90s Dynamic Token & Time-Sync',
-      desc: 'Validating cryptographic code freshness and timestamp',
-      icon: Clock,
+      title: 'Lecture Hall Geofencing Check',
+      desc: 'Strictly verifying your distance from the classroom radius',
+      icon: MapPin,
     },
     {
       id: 3,
@@ -224,10 +229,10 @@ export default function SecurityCheckModal({
                 <div style={{ fontSize: 12, color: '#b45309', marginTop: 4, lineHeight: 1.4 }}>
                   {errorMessage ? (
                     <span>{errorMessage}</span>
-                  ) : failedStep === 1 ? (
-                    <span>You appear to be outside the classroom perimeter. Please <strong>move inside the lecture hall</strong> and click Try Again.</span>
                   ) : failedStep === 2 ? (
-                    <span>The active session code did not match or has refreshed. Please <strong>check the projector screen</strong> and try again.</span>
+                    <span>You are not in the lecture hall. Please go there to check in.</span>
+                  ) : failedStep === 1 ? (
+                    <span>No active session matched that code, or the time window has expired.</span>
                   ) : (
                     <span>Device check or enrollment check failed. Please speak with your Lecturer.</span>
                   )}

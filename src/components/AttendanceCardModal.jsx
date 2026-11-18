@@ -1,5 +1,5 @@
-import React from 'react';
-import { Award, CheckCircle2, Calendar, Clock, User, BookOpen, ShieldCheck, Download, X, QrCode } from 'lucide-react';
+import React, { useEffect, useCallback } from 'react';
+import { Award, CheckCircle2, Calendar, Clock, User, BookOpen, ShieldCheck, Download, X, QrCode, ArrowLeft } from 'lucide-react';
 
 export default function AttendanceCardModal({
   isOpen,
@@ -8,6 +8,31 @@ export default function AttendanceCardModal({
   cardData,
   student
 }) {
+  const handleSafeClose = useCallback(() => {
+    if (onClose) onClose();
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let pushedHistory = false;
+    try {
+      window.history.pushState({ cardModal: true }, '');
+      pushedHistory = true;
+    } catch (e) { /* ignore */ }
+
+    const onKey = (e) => { if (e.key === 'Escape') handleSafeClose(); };
+    const onPop = () => { pushedHistory = false; handleSafeClose(); };
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('popstate', onPop);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('popstate', onPop);
+      if (pushedHistory && window.history.state?.cardModal) {
+        try { window.history.back(); } catch (e) { /* ignore */ }
+      }
+    };
+  }, [isOpen, handleSafeClose]);
+
   if (!isOpen || !cardData) return null;
 
   const courseName = cardData.courseName || cardData.course?.name || 'Class Attendance';
@@ -15,7 +40,9 @@ export default function AttendanceCardModal({
   const openedBy = cardData.openedBy || cardData.host || 'Course Lecturer';
   const dateFormatted = cardData.date || new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' });
   const timeFormatted = cardData.time || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  const method = cardData.method === 'qr_code' ? 'Dynamic QR Code' : '4-Digit Rotating Passcode';
+  const method = cardData.method === 'qr_code'
+    ? 'Dynamic QR Code'
+    : (cardData.method === 'manual_lecturer' ? 'Manual (Lecturer)' : '4-Digit Rotating Passcode');
   const isFlagged = Boolean(cardData.flagged || String(cardData.status || '').toLowerCase() === 'flagged');
   const refId = isFlagged ? null : (cardData.receipt_code || cardData.refId || null);
   const studentName = student ? `${student.first_name} ${student.last_name}`.trim() : 'Student Account';
@@ -48,29 +75,35 @@ export default function AttendanceCardModal({
         <div style={{
           background: 'linear-gradient(135deg, #0A3A4F 0%, #1E5A87 100%)',
           color: 'white',
-          padding: '24px 24px 20px',
+          padding: '20px 24px 20px',
           position: 'relative'
         }}>
-          <button
-            onClick={onClose}
-            style={{
-              position: 'absolute',
-              right: 16,
-              top: 16,
-              background: 'rgba(255,255,255,0.15)',
-              border: 'none',
-              borderRadius: '50%',
-              width: 32,
-              height: 32,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white',
-              cursor: 'pointer'
-            }}
-          >
-            <X size={18} />
-          </button>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <button
+              type="button"
+              onClick={handleSafeClose}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                background: 'rgba(255,255,255,0.16)', border: '1px solid rgba(255,255,255,0.22)',
+                borderRadius: 10, padding: '6px 12px', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer'
+              }}
+            >
+              <ArrowLeft size={14} /> Back
+            </button>
+            <button
+              type="button"
+              aria-label="Close card"
+              onClick={handleSafeClose}
+              style={{
+                background: 'rgba(255,255,255,0.16)', border: '1px solid rgba(255,255,255,0.22)',
+                borderRadius: '50%', width: 32, height: 32,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: 'white', cursor: 'pointer'
+              }}
+            >
+              <X size={18} />
+            </button>
+          </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
             <div style={{
