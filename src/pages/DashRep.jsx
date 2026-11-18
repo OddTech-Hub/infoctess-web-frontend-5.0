@@ -11,38 +11,6 @@ import { useNavigate } from "react-router-dom";
 import { request } from "../api/client";
 import { getRotatingSessionState } from "../utils/sessionCode";
 
-// ─── STATIC DATA FALLBACK ───────────────────────────────────────────────────
-
-const MY_COURSES = [
-  { code: "ICTE125", name: "Multimedia Authoring in Education" },
-  { code: "ICTW123", name: "Fundamentals of Computer Programming" },
-  { code: "ICTS201", name: "Systems Analysis and Design" },
-  { code: "ICTD310", name: "Database Management Systems" },
-];
-
-const INITIAL_SESSIONS = [
-  {
-    id: "ATT-4869", course: "ICTE125", courseName: "Multimedia Authoring in Education",
-    date: "6/2/2026", checkins: 2, status: "closed", timeWindow: 10,
-    students: [
-      { name: "Alberta Klokpa",   index: "5261000018", method: "QR Code",      time: "2:48:13 PM", avatar: "AK" },
-      { name: "Emmanuel Oduro",   index: "5261000215", method: "Session Code",  time: "2:49:01 PM", avatar: "EO" },
-    ]
-  },
-];
-
-// Simulated students who can "walk in" during a live session
-const WALK_IN_POOL = [
-  { name: "Alberta Klokpa",    index: "5261000018", method: "QR Code",     avatar: "AK" },
-  { name: "Daniel Amoh",       index: "5261000667", method: "Session Code", avatar: "DA" },
-  { name: "Emmanuel Oduro",    index: "5261000215", method: "QR Code",     avatar: "EO" },
-  { name: "Emmanuel Twumasi",  index: "5261000267", method: "Session Code", avatar: "ET" },
-  { name: "Heis Boateng",      index: "5261000323",  method: "QR Code",     avatar: "HB" },
-  { name: "Nimako Joe",        index: "5261000334", method: "Session Code", avatar: "NJ" },
-  { name: "Osie Eugen Bonu",   index: "5261000660", method: "QR Code",     avatar: "OB" },
-  { name: "Sandra Mensah",     index: "5261000712", method: "Session Code", avatar: "SM" },
-];
-
 // ─── QR VISUAL ───────────────────────────────────────────────────────────────
 
 function QRVisual({ code, size = 200 }) {
@@ -223,7 +191,7 @@ function downloadSessionPDF(session) {
         </div>
         <div class="meta-item">
           <div class="meta-label">Course Name</div>
-          <div class="meta-val">${session.courseName || 'Multimedia Authoring'}</div>
+          <div class="meta-val">${session.courseName || 'Attendance Session'}</div>
         </div>
         <div class="meta-item">
           <div class="meta-label">Session Status</div>
@@ -312,7 +280,7 @@ export default function CourseRepDashboard() {
   const [tab, setTab]             = useState("dashboard");
   const [isMobile, setIsMobile]   = useState(() => typeof window !== "undefined" ? window.innerWidth <= 768 : false);
   const [sidebarOpen, setSidebarOpen] = useState(() => typeof window !== "undefined" ? window.innerWidth > 768 : true);
-  const [sessions, setSessions]   = useState(INITIAL_SESSIONS);
+  const [sessions, setSessions]   = useState([]);
   const [courses, setCourses]     = useState([]);
   const [assignedGroups, setAssignedGroups] = useState([]);
   const [selectedCourse, setSelectedCourse] = useState("");

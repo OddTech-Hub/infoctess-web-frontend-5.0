@@ -18,8 +18,8 @@ export default function AttendanceCardModal({
   const method = cardData.method === 'qr_code' ? 'Dynamic QR Code' : '4-Digit Rotating Passcode';
   const isFlagged = Boolean(cardData.flagged || String(cardData.status || '').toLowerCase() === 'flagged');
   const refId = isFlagged ? null : (cardData.receipt_code || cardData.refId || null);
-  const studentName = student ? `${student.first_name} ${student.last_name}` : 'Student Account';
-  const indexNumber = student?.index_number || '5261000667';
+  const studentName = student ? `${student.first_name} ${student.last_name}`.trim() : 'Student Account';
+  const indexNumber = student?.index_number || '';
 
   return (
     <div style={{

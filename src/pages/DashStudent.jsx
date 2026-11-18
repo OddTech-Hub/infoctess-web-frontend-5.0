@@ -183,7 +183,7 @@ export default function DashStudent() {
         setStats({
           attended: myData.attended || 0,
           total: myData.total || 0,
-          pct: myData.pct !== undefined ? myData.pct : 100
+          pct: (myData.total || 0) > 0 ? (myData.pct ?? 0) : 0
         });
       }
 
@@ -409,8 +409,17 @@ export default function DashStudent() {
   };
 
   // Color-coded attendance status badges:
-  // Green >= 75%, Yellow 60-74%, Red < 60%
-  const getAttendanceStatusBadge = (pct) => {
+  // Neutral when 0 sessions held, Green >= 75%, Yellow 60-74%, Red < 60%
+  const getAttendanceStatusBadge = (pct, total = 1) => {
+    if (!total || total === 0) {
+      return {
+        label: 'No Sessions Yet',
+        color: '#64748b',
+        bg: '#f1f5f9',
+        border: '#cbd5e1',
+        bar: '#94a3b8'
+      };
+    }
     if (pct >= 75) {
       return {
         label: 'Good / Safe',
@@ -449,9 +458,9 @@ export default function DashStudent() {
     );
   }
 
-  const fullName = student ? `${student.first_name} ${student.last_name}` : 'Student Account';
-  const indexNo = student?.index_number || '5261000018';
-  const overallBadge = getAttendanceStatusBadge(stats.pct);
+  const fullName = student ? `${student.first_name} ${student.last_name}`.trim() : 'Student Account';
+  const indexNo = student?.index_number || '';
+  const overallBadge = getAttendanceStatusBadge(stats.pct, stats.total);
 
   return (
     <div style={{ minHeight: '100vh', background: '#f8fafc', color: '#0f172a', fontFamily: "'DM Sans', sans-serif" }}>
@@ -514,7 +523,7 @@ export default function DashStudent() {
               gap: 6
             }}>
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: overallBadge.color }} />
-              {stats.pct}% Attendance · {overallBadge.label}
+              {stats.total > 0 ? `${stats.pct}% Attendance · ${overallBadge.label}` : '0 / 0 · No Sessions Yet'}
             </div>
           </div>
 
@@ -690,12 +699,15 @@ export default function DashStudent() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {courses.length > 0 ? courses.map(c => {
-                const badge = getAttendanceStatusBadge(stats.pct);
+                const cTotal = c.total ?? 0;
+                const cAttended = c.attended ?? 0;
+                const cPct = cTotal > 0 ? (c.pct ?? 0) : 0;
+                const badge = getAttendanceStatusBadge(cPct, cTotal);
                 const matchingEnrolled = (student?.enrolled_groups || []).find(g => g.course_code === c.code);
                 const courseLecturer = c.lecturer_name || matchingEnrolled?.lecturer_name || student?.lecturer_name || 'Assigned Faculty Lecturer';
                 return (
                   <div key={c.code} style={{ background: '#f8fafc', borderRadius: 14, padding: '16px 18px', border: '1.5px solid #e2e8f0' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
                       <div>
                         <span style={{ fontSize: 11, fontWeight: 800, background: '#e0f2fe', color: '#0369a1', padding: '3px 8px', borderRadius: 6 }}>
                           {c.code}
@@ -709,7 +721,7 @@ export default function DashStudent() {
                           {c.name}
                         </div>
                         <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
-                          Credits: 3 Credit Hours · Lecturer: {courseLecturer}
+                          Attended: <strong>{cAttended} / {cTotal}</strong> sessions · Lecturer: {courseLecturer}
                         </div>
                       </div>
 
@@ -718,13 +730,13 @@ export default function DashStudent() {
                         fontSize: 12, fontWeight: 800, padding: '4px 12px', borderRadius: 20,
                         background: badge.bg, color: badge.color, border: `1px solid ${badge.border}`
                       }}>
-                        {stats.pct}% · {badge.label}
+                        {cTotal > 0 ? `${cPct}% · ${badge.label}` : badge.label}
                       </span>
                     </div>
 
                     {/* Progress Bar */}
                     <div style={{ height: 8, background: '#e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${stats.pct}%`, background: badge.bar, borderRadius: 10, transition: 'width 0.4s ease' }} />
+                      <div style={{ height: '100%', width: `${cPct}%`, background: badge.bar, borderRadius: 10, transition: 'width 0.4s ease' }} />
                     </div>
                   </div>
                 );
